@@ -11,8 +11,7 @@ export function Header() {
   const navItems = [
     { name: "Docs", href: "/docs" },
     { name: "Playground", href: "/playground" },
-    { name: "Pricing", href: "#pricing" },
-    { name: "GitHub", href: "https://github.com/sigaid/sigaid", external: true },
+    { name: "GitHub", href: "https://github.com/trustorno/sigaid", external: true },
   ];
 
   return (

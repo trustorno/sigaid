@@ -117,7 +117,7 @@ export default function AgentsPage() {
               </div>
             </div>
             <Button variant="outline" size="sm" asChild>
-              <Link href="/#pricing">Upgrade for more</Link>
+              <Link href="/docs">View Docs</Link>
             </Button>
           </div>
         </CardContent>

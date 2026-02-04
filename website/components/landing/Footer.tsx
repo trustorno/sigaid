@@ -10,7 +10,6 @@ type FooterLink = {
 const footerLinks: Record<string, FooterLink[]> = {
   Product: [
     { name: "Features", href: "/#features" },
-    { name: "Pricing", href: "/#pricing" },
     { name: "Changelog", href: "/changelog" },
     { name: "Roadmap", href: "/roadmap" },
   ],
@@ -18,7 +17,7 @@ const footerLinks: Record<string, FooterLink[]> = {
     { name: "Documentation", href: "/docs" },
     { name: "API Reference", href: "/docs/api" },
     { name: "Playground", href: "/playground" },
-    { name: "GitHub", href: "https://github.com/sigaid/sigaid", external: true },
+    { name: "GitHub", href: "https://github.com/trustorno/sigaid", external: true },
   ],
   Company: [
     { name: "About", href: "/about" },
@@ -64,7 +63,7 @@ export function Footer() {
             {/* Social links */}
             <div className="flex gap-4">
               <a
-                href="https://github.com/sigaid/sigaid"
+                href="https://github.com/trustorno/sigaid"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground transition-colors"

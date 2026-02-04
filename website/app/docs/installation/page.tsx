@@ -83,7 +83,7 @@ export default function InstallationPage() {
       </p>
 
       <pre className="bg-card border border-border rounded-lg p-4 overflow-x-auto mb-6">
-        <code>{`git clone https://github.com/sigaid/sigaid.git
+        <code>{`git clone https://github.com/trustorno/sigaid.git
 cd sigaid
 pip install -e ".[dev]"
 
