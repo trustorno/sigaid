@@ -42,7 +42,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: sdk/js
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Build
         working-directory: sdk/js
