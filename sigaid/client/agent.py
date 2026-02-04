@@ -110,6 +110,8 @@ class AgentClient:
 
         self._closed = False
         self._registered = False  # Track if registered with Authority
+        self._should_register = True  # Whether to auto-register on first lease
+        self._agent_name: str | None = None  # Optional human-readable name
     
     # ========== Factory Methods ==========
     

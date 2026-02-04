@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, AsyncIterator
+
+logger = logging.getLogger(__name__)
 
 from sigaid.constants import (
     DEFAULT_LEASE_RENEWAL_BUFFER_SECONDS,
@@ -176,8 +179,11 @@ class LeaseManager:
                     self._agent_id,
                     self._session_id,
                 )
-            except Exception:
-                pass  # Best effort - lease will expire anyway
+            except Exception as e:
+                # Best effort - lease will expire anyway, but log for debugging
+                logger.warning(
+                    f"Failed to notify Authority of lease release for {self._agent_id}: {e}"
+                )
             
             self._current_lease = None
             self._session_id = None
@@ -243,8 +249,12 @@ class LeaseManager:
             
             except asyncio.CancelledError:
                 break
-            except Exception:
+            except Exception as e:
                 # Log error but continue trying
+                logger.error(
+                    f"Lease auto-renewal failed for {self._agent_id}: {e}. "
+                    f"Retrying in 5 seconds."
+                )
                 await asyncio.sleep(5)
     
     @asynccontextmanager

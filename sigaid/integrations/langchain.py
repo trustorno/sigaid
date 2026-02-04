@@ -224,39 +224,59 @@ async def _invoke_with_lease(original_invoke: Callable, sigaid_client: AgentClie
 def wrap_langchain(
     agent: Any,
     *,
+    authority_url: str | None = None,
     api_key: str | None = None,
     agent_name: str | None = None,
 ) -> Any:
     """
     Wrap a LangChain agent/chain with SigAid identity.
-    
+
     Supports:
     - AgentExecutor
     - RunnableSequence
     - Any Runnable with callbacks
-    
+
     Args:
         agent: LangChain agent/chain to wrap
+        authority_url: Authority service URL (or SIGAID_AUTHORITY_URL env var)
+                      Defaults to https://api.sigaid.com
         api_key: SigAid API key (or SIGAID_API_KEY env var)
         agent_name: Optional name for this agent
-        
+
     Returns:
         Wrapped agent with _sigaid attribute
-    
+
     Example:
         from langchain.agents import AgentExecutor
         import sigaid
-        
+
+        # Using hosted service
         agent = AgentExecutor(...)
-        agent = sigaid.wrap(agent)
-        
+        agent = sigaid.wrap(agent, api_key="sk_xxx")
+
+        # Using self-hosted authority
+        agent = sigaid.wrap(
+            agent,
+            authority_url="https://my-authority.com",
+            api_key="sk_xxx"
+        )
+
         # Use as normal
         result = agent.invoke({"input": "Hello"})
-        
+
         # Access SigAid
         print(agent._sigaid.agent_id)
     """
+    import os
     from sigaid.client.agent import AgentClient
-    
-    client = AgentClient.create(api_key=api_key)
+    from sigaid.constants import DEFAULT_AUTHORITY_URL
+
+    authority_url = (
+        authority_url
+        or os.environ.get("SIGAID_AUTHORITY_URL")
+        or DEFAULT_AUTHORITY_URL
+    )
+    api_key = api_key or os.environ.get("SIGAID_API_KEY")
+
+    client = AgentClient.create(authority_url=authority_url, api_key=api_key)
     return LangChainIntegration.wrap(agent, client)

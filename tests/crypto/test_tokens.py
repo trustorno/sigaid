@@ -106,3 +106,17 @@ class TestLeaseTokenManager:
         """Test that invalid key length raises error."""
         with pytest.raises(ValueError):
             LeaseTokenManager(b"too_short")
+
+    def test_extra_claims_cannot_override_reserved(self, manager):
+        """Test that extra_claims cannot override reserved security claims."""
+        reserved_claims = ["agent_id", "session_id", "iat", "exp", "jti", "seq"]
+
+        for claim in reserved_claims:
+            with pytest.raises(ValueError) as exc_info:
+                manager.create_token(
+                    agent_id="aid_test",
+                    session_id="session_123",
+                    extra_claims={claim: "malicious_value"},
+                )
+            assert "reserved claims" in str(exc_info.value).lower()
+            assert claim in str(exc_info.value)

@@ -32,8 +32,15 @@ pip install sigaid[all-integrations]  # All frameworks
 ```python
 import sigaid
 
-# Wrap your existing agent - that's it!
-agent = sigaid.wrap(my_langchain_agent)
+# Using hosted service (https://api.sigaid.com)
+agent = sigaid.wrap(my_langchain_agent, api_key="sk_xxx")
+
+# Using self-hosted authority
+agent = sigaid.wrap(
+    my_langchain_agent,
+    authority_url="https://my-authority.com",
+    api_key="sk_xxx"
+)
 
 # Use exactly as before
 result = agent.invoke({"input": "Hello"})
@@ -49,10 +56,17 @@ import asyncio
 from sigaid import AgentClient
 
 async def main():
-    # Create new agent
-    client = AgentClient.create()
+    # Create new agent (hosted service)
+    client = AgentClient.create(api_key="sk_xxx")
+
+    # Or with self-hosted authority
+    client = AgentClient.create(
+        authority_url="https://my-authority.com",
+        api_key="sk_xxx"
+    )
+
     print(f"Agent ID: {client.agent_id}")
-    
+
     # Acquire exclusive lease
     async with client.lease() as lease:
         # Record actions
@@ -61,10 +75,10 @@ async def main():
             {"amount": 100, "recipient": "merchant_123"},
             summary="Processed payment"
         )
-        
+
         # Create proof for verification
         proof = client.create_proof(challenge=b"verifier_nonce")
-    
+
     await client.close()
 
 asyncio.run(main())
@@ -75,7 +89,10 @@ asyncio.run(main())
 ```python
 from sigaid import Verifier
 
-verifier = Verifier(api_key="...")
+verifier = Verifier(
+    authority_url="https://api.sigaid.com",  # or your self-hosted URL
+    api_key="sk_xxx"
+)
 
 result = await verifier.verify(
     proof_bundle,
@@ -139,13 +156,41 @@ Complete proof for verification:
 | AutoGen | Supported | `pip install sigaid[autogen]` |
 | OpenAI Agents | Supported | Base package |
 
-## Environment Variables
+## Configuration
+
+### Environment Variables
 
 ```bash
-SIGAID_API_KEY=sk_live_xxx     # API key for Authority
-SIGAID_AUTHORITY_URL=https://api.sigaid.com  # Authority URL
-SIGAID_LOG_LEVEL=INFO          # Logging verbosity
+SIGAID_AUTHORITY_URL=https://api.sigaid.com  # Authority service URL
+SIGAID_API_KEY=sk_xxx                        # API key for Authority
+SIGAID_LOG_LEVEL=INFO                        # Logging verbosity
 ```
+
+### Configuration Priority
+
+Both `authority_url` and `api_key` follow the same priority order:
+
+1. **Explicit parameter** - passed directly to function
+2. **Environment variable** - `SIGAID_AUTHORITY_URL` / `SIGAID_API_KEY`
+3. **Default** - `https://api.sigaid.com` (authority_url only)
+
+```python
+# All three are equivalent when env vars are set:
+agent = sigaid.wrap(my_agent)
+agent = sigaid.wrap(my_agent, api_key=os.environ["SIGAID_API_KEY"])
+agent = sigaid.wrap(
+    my_agent,
+    authority_url=os.environ["SIGAID_AUTHORITY_URL"],
+    api_key=os.environ["SIGAID_API_KEY"]
+)
+```
+
+### Self-Hosted vs Hosted
+
+| Deployment | Authority URL | API Key |
+|------------|---------------|---------|
+| **Hosted** (default) | `https://api.sigaid.com` | Get from sigaid.com |
+| **Self-hosted** | Your server URL | Generate with your Authority |
 
 ## Development
 

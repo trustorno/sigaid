@@ -5,42 +5,64 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from sigaid.constants import DEFAULT_AUTHORITY_URL
 from sigaid.exceptions import SigAidError
 
 
 def detect_and_wrap(
     agent: Any,
     *,
+    authority_url: str | None = None,
     api_key: str | None = None,
     agent_name: str | None = None,
 ) -> Any:
     """
     Auto-detect framework and apply appropriate wrapper.
-    
+
     This is the universal entry point for one-line integration.
-    
+
     Args:
         agent: Any supported agent (LangChain, CrewAI, AutoGen, OpenAI, etc.)
+        authority_url: Authority service URL. Priority:
+                      1. Explicit parameter
+                      2. SIGAID_AUTHORITY_URL env var
+                      3. Default: https://api.sigaid.com
         api_key: SigAid API key (or SIGAID_API_KEY env var)
         agent_name: Optional human-readable name for this agent
-        
+
     Returns:
         Wrapped agent with same interface, now with SigAid identity
-        
+
     Raises:
         TypeError: If agent type is not supported
-    
+
     Example:
         import sigaid
-        agent = sigaid.wrap(my_agent)
+
+        # Hosted service (default)
+        agent = sigaid.wrap(my_agent, api_key="sk_xxx")
+
+        # Self-hosted
+        agent = sigaid.wrap(
+            my_agent,
+            authority_url="https://my-authority.com",
+            api_key="sk_xxx"
+        )
     """
     from sigaid.client.agent import AgentClient
-    
-    # Get API key
+
+    # Resolve authority URL (parameter > env var > default)
+    authority_url = (
+        authority_url
+        or os.environ.get("SIGAID_AUTHORITY_URL")
+        or DEFAULT_AUTHORITY_URL
+    )
+
+    # Resolve API key (parameter > env var)
     api_key = api_key or os.environ.get("SIGAID_API_KEY")
-    
+
     # Create SigAid client
-    client = AgentClient.create(api_key=api_key)
+    client = AgentClient.create(authority_url=authority_url, api_key=api_key)
     
     # Detect agent type
     agent_type = type(agent).__module__ + "." + type(agent).__name__

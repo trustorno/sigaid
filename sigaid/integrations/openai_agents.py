@@ -88,31 +88,52 @@ class OpenAIAgentsIntegration(BaseIntegration):
 def wrap_openai_agent(
     agent: Any,
     *,
+    authority_url: str | None = None,
     api_key: str | None = None,
     agent_name: str | None = None,
 ) -> Any:
     """
     Wrap an OpenAI Agents SDK agent with SigAid identity.
-    
+
     Args:
         agent: OpenAI agent to wrap
+        authority_url: Authority service URL (or SIGAID_AUTHORITY_URL env var)
+                      Defaults to https://api.sigaid.com
         api_key: SigAid API key (or SIGAID_API_KEY env var)
         agent_name: Optional name for this agent
-        
+
     Returns:
         Wrapped agent with _sigaid attribute
-    
+
     Example:
         from openai import Agent
         import sigaid
-        
+
         agent = Agent(...)
-        agent = sigaid.wrap(agent)
-        
+
+        # Using hosted service
+        agent = sigaid.wrap(agent, api_key="sk_xxx")
+
+        # Using self-hosted authority
+        agent = sigaid.wrap(
+            agent,
+            authority_url="https://my-authority.com",
+            api_key="sk_xxx"
+        )
+
         result = await agent.run("Hello!")
         print(agent._sigaid.agent_id)
     """
+    import os
     from sigaid.client.agent import AgentClient
-    
-    client = AgentClient.create(api_key=api_key)
+    from sigaid.constants import DEFAULT_AUTHORITY_URL
+
+    authority_url = (
+        authority_url
+        or os.environ.get("SIGAID_AUTHORITY_URL")
+        or DEFAULT_AUTHORITY_URL
+    )
+    api_key = api_key or os.environ.get("SIGAID_API_KEY")
+
+    client = AgentClient.create(authority_url=authority_url, api_key=api_key)
     return OpenAIAgentsIntegration.wrap(agent, client)

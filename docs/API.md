@@ -1,10 +1,30 @@
 # SigAid Authority API Documentation
 
-Base URL: `http://localhost:8001/v1`
+## Base URLs
+
+| Deployment | Base URL |
+|------------|----------|
+| **Hosted Service** | `https://api.sigaid.com/v1` |
+| **Self-Hosted** | `https://your-authority.com/v1` |
+| **Local Development** | `http://localhost:8000/v1` |
 
 ## Authentication
 
-Most endpoints require agent signature verification. The `/verify` endpoint requires an API key.
+All API requests require authentication via API key:
+
+```
+X-API-Key: sk_xxx
+```
+
+Or via Bearer token:
+
+```
+Authorization: Bearer sk_xxx
+```
+
+Get your API key:
+- **Hosted**: Sign up at sigaid.com
+- **Self-hosted**: Generate via Authority admin CLI
 
 ### Rate Limits
 

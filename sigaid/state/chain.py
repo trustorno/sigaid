@@ -415,19 +415,17 @@ class StateChain:
 
     def _load_from_file_with_lock(self, path: Path) -> None:
         """Load chain with file locking and WAL recovery."""
-        lock_fd = self._acquire_file_lock(path, exclusive=False)
+        # Check for WAL first - if it exists, we need exclusive lock from the start
+        # to avoid race condition during lock upgrade
+        wal_path = path.with_suffix(".wal")
+        needs_recovery = wal_path.exists()
+
+        lock_fd = self._acquire_file_lock(path, exclusive=needs_recovery)
 
         try:
-            # Check for WAL recovery (crash during previous write)
-            wal_path = path.with_suffix(".wal")
-            if wal_path.exists():
-                # Need exclusive lock for recovery
-                self._release_file_lock(lock_fd)
-                lock_fd = self._acquire_file_lock(path, exclusive=True)
+            # Perform WAL recovery if needed (we already have exclusive lock)
+            if needs_recovery:
                 self._recover_from_wal(path, wal_path)
-                # Downgrade to shared lock for reading
-                self._release_file_lock(lock_fd)
-                lock_fd = self._acquire_file_lock(path, exclusive=False)
 
             # Load main file
             with open(path) as f:

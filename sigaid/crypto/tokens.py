@@ -98,6 +98,13 @@ class LeaseTokenManager:
             payload["meta"] = metadata
 
         if extra_claims:
+            # Prevent overriding critical security claims
+            reserved_claims = {"agent_id", "session_id", "iat", "exp", "jti", "seq"}
+            forbidden = reserved_claims & extra_claims.keys()
+            if forbidden:
+                raise ValueError(
+                    f"Cannot override reserved claims: {', '.join(sorted(forbidden))}"
+                )
             payload.update(extra_claims)
 
         # Encode payload as JSON bytes for pyseto

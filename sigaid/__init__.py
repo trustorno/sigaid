@@ -31,24 +31,51 @@ from sigaid.exceptions import (
 )
 
 
-def wrap(agent, *, api_key: str | None = None, agent_name: str | None = None):
+def wrap(
+    agent,
+    *,
+    authority_url: str | None = None,
+    api_key: str | None = None,
+    agent_name: str | None = None,
+):
     """
     Universal one-line wrapper. Auto-detects framework.
-    
+
     Usage:
         import sigaid
+
+        # Using hosted service (default)
+        agent = sigaid.wrap(my_agent, api_key="sk_xxx")
+
+        # Using self-hosted authority
+        agent = sigaid.wrap(
+            my_agent,
+            authority_url="https://my-authority.com",
+            api_key="sk_xxx"
+        )
+
+        # Using environment variables
+        # SIGAID_AUTHORITY_URL=https://my-authority.com
+        # SIGAID_API_KEY=sk_xxx
         agent = sigaid.wrap(my_agent)
-    
+
     Args:
         agent: Any supported agent (LangChain, CrewAI, AutoGen, etc.)
-        api_key: SigAid API key (or use SIGAID_API_KEY env var)
+        authority_url: Authority service URL (or SIGAID_AUTHORITY_URL env var)
+                      Defaults to https://api.sigaid.com
+        api_key: SigAid API key (or SIGAID_API_KEY env var)
         agent_name: Optional human-readable name for this agent
-    
+
     Returns:
         Wrapped agent with same interface, now with SigAid identity
     """
     from sigaid.integrations.detect import detect_and_wrap
-    return detect_and_wrap(agent, api_key=api_key, agent_name=agent_name)
+    return detect_and_wrap(
+        agent,
+        authority_url=authority_url,
+        api_key=api_key,
+        agent_name=agent_name,
+    )
 
 
 __all__ = [
