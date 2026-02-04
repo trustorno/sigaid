@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
 
-const footerLinks = {
+type FooterLink = {
+  name: string;
+  href: string;
+  external?: boolean;
+};
+
+const footerLinks: Record<string, FooterLink[]> = {
   Product: [
     { name: "Features", href: "/#features" },
     { name: "Pricing", href: "/#pricing" },
