@@ -41,15 +41,15 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
-        working-directory: sdk/faces
-        run: npm ci
+        working-directory: sdk/js
+        run: npm install
 
       - name: Build
-        working-directory: sdk/faces
+        working-directory: sdk/js
         run: npm run build
 
       - name: Publish to npm
-        working-directory: sdk/faces
+        working-directory: sdk/js
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
