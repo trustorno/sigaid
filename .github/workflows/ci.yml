@@ -21,7 +21,7 @@ jobs:
         run: pip install -e .
 
       - name: Test import
-        run: python -c "from sigaid import Agent, AgentFace; print('Import OK')"
+        run: python -c "from sigaid import AgentClient, wrap; print('Import OK')"
 
       - name: Build package
         run: |
