@@ -1,6 +1,6 @@
 {
-  "name": "@sigaid/widget",
-  "version": "0.1.4",
+  "name": "sigaid-widget",
+  "version": "0.1.0",
   "description": "SigAid Face Widget - Embeddable agent identity verification",
   "main": "dist/widget.js",
   "module": "dist/widget.esm.js",
