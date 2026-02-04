@@ -4,17 +4,16 @@ applications:
       phases:
         preBuild:
           commands:
-            - cd website
             - npm ci
         build:
           commands:
             - npm run build
       artifacts:
-        baseDirectory: website/.next
+        baseDirectory: .next
         files:
           - '**/*'
       cache:
         paths:
-          - website/node_modules/**/*
-          - website/.next/cache/**/*
+          - node_modules/**/*
+          - .next/cache/**/*
     appRoot: website
