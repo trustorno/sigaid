@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import base58
 
 from sigaid.constants import AGENT_ID_PREFIX, ED25519_PUBLIC_KEY_SIZE
@@ -97,7 +98,7 @@ class AgentID:
                 f"Decoded data must be {ED25519_PUBLIC_KEY_SIZE + 4} bytes, got {len(data)}"
             )
 
-        # Verify checksum
+        # Verify checksum using constant-time comparison to prevent timing attacks
         public_key = data[:ED25519_PUBLIC_KEY_SIZE]
         checksum = data[ED25519_PUBLIC_KEY_SIZE:]
 
@@ -105,7 +106,9 @@ class AgentID:
 
         expected_checksum = hash_bytes(public_key)[:4]
 
-        if checksum != expected_checksum:
+        # Use hmac.compare_digest for constant-time comparison
+        # This prevents timing attacks that could leak checksum information
+        if not hmac.compare_digest(checksum, expected_checksum):
             raise InvalidAgentID("Checksum verification failed")
 
         return True

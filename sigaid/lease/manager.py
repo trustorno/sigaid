@@ -19,6 +19,7 @@ from sigaid.exceptions import (
     LeaseExpired,
     LeaseNotHeld,
     LeaseRenewalFailed,
+    ClientError,
 )
 
 if TYPE_CHECKING:
@@ -145,13 +146,17 @@ class LeaseManager:
         request_data["signature"] = signature.hex()
 
         # Send to Authority
-        response = await self._http_client.post("/v1/leases", json=request_data)
-
-        if response.get("error") == "lease_held":
-            raise LeaseHeldByAnotherInstance(
-                self.agent_id,
-                response.get("holder_session_id"),
-            )
+        try:
+            response = await self._http_client.post("/v1/leases", json=request_data)
+        except ClientError as e:
+            # Check for lease held error
+            error_data = e.response_data
+            error = error_data.get("error") or error_data.get("detail", {}).get("error")
+            if error == "lease_held":
+                detail = error_data.get("detail", {})
+                holder = detail.get("holder_session_id") if isinstance(detail, dict) else error_data.get("holder_session_id")
+                raise LeaseHeldByAnotherInstance(self.agent_id, holder) from e
+            raise RuntimeError(f"Lease acquisition failed: {e}") from e
 
         return Lease(
             agent_id=self.agent_id,
@@ -197,17 +202,17 @@ class LeaseManager:
 
     async def _renew_remote(self) -> Lease:
         """Renew lease with Authority service."""
-        response = await self._http_client.put(
-            f"/v1/leases/{self.agent_id}",
-            json={
-                "session_id": self._session_id,
-                "current_token": self._current_lease.token,
-                "ttl_seconds": self._ttl_seconds,
-            },
-        )
-
-        if response.get("error"):
-            raise LeaseRenewalFailed(response.get("message", "Unknown error"))
+        try:
+            response = await self._http_client.put(
+                f"/v1/leases/{self.agent_id}",
+                json={
+                    "session_id": self._session_id,
+                    "current_token": self._current_lease.token,
+                    "ttl_seconds": self._ttl_seconds,
+                },
+            )
+        except ClientError as e:
+            raise LeaseRenewalFailed(str(e)) from e
 
         self._current_lease.renew(
             new_token=response["lease_token"],
@@ -268,16 +273,21 @@ class LeaseManager:
 
     async def _renewal_loop(self) -> None:
         """Background loop to renew lease before expiry."""
-        while self._current_lease and self._current_lease.is_active:
+        while True:
             try:
+                # Check lease status at start of loop
+                lease = self._current_lease
+                if not lease or not lease.is_active:
+                    break
+
                 # Wait until we should renew
                 wait_seconds = max(
                     0,
-                    self._current_lease.ttl_seconds - self._renewal_buffer_seconds,
+                    lease.ttl_seconds - self._renewal_buffer_seconds,
                 )
                 await asyncio.sleep(wait_seconds)
 
-                # Check if still active
+                # Re-check if still active after sleep
                 if not self._current_lease or not self._current_lease.is_active:
                     break
 
@@ -286,8 +296,10 @@ class LeaseManager:
 
             except asyncio.CancelledError:
                 break
-            except Exception:
+            except Exception as e:
                 # Log error but continue trying
+                import logging
+                logging.getLogger(__name__).warning(f"Lease renewal failed: {e}")
                 await asyncio.sleep(5)
 
     def check_lease(self) -> None:

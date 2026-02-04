@@ -136,3 +136,157 @@ class TestPublicKeyFromBytes:
         """Test that invalid length is rejected."""
         with pytest.raises(InvalidKey):
             public_key_from_bytes(b"too_short")
+
+
+class TestKeyPairSecureMemory:
+    """Tests for KeyPair secure memory handling."""
+
+    def test_clear_method(self):
+        """Test clear() method zeros key material."""
+        keypair = KeyPair.generate()
+        assert not keypair._cleared
+
+        keypair.clear()
+
+        assert keypair._cleared
+        assert keypair._secure_seed is None
+
+    def test_clear_multiple_times_safe(self):
+        """Test clear() can be called multiple times safely."""
+        keypair = KeyPair.generate()
+        keypair.clear()
+        keypair.clear()  # Should not raise
+        assert keypair._cleared
+
+    def test_sign_after_clear_raises(self):
+        """Test signing after clear raises CryptoError."""
+        keypair = KeyPair.generate()
+        keypair.clear()
+
+        with pytest.raises(CryptoError, match="cleared"):
+            keypair.sign(b"message")
+
+    def test_private_key_bytes_after_clear_raises(self):
+        """Test getting private key bytes after clear raises."""
+        keypair = KeyPair.generate()
+        keypair.clear()
+
+        with pytest.raises(CryptoError, match="cleared"):
+            keypair.private_key_bytes()
+
+    def test_to_encrypted_file_after_clear_raises(self):
+        """Test encrypting to file after clear raises."""
+        keypair = KeyPair.generate()
+        keypair.clear()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.key"
+            with pytest.raises(CryptoError, match="cleared"):
+                keypair.to_encrypted_file(path, "password")
+
+    def test_context_manager(self):
+        """Test KeyPair as context manager."""
+        with KeyPair.generate() as keypair:
+            # Can use keypair inside context
+            assert len(keypair.public_key_bytes()) == 32
+            assert not keypair._cleared
+
+        # Automatically cleared after exiting
+        assert keypair._cleared
+
+    def test_context_manager_clears_on_exception(self):
+        """Test context manager clears even on exception."""
+        keypair = None
+        try:
+            with KeyPair.generate() as kp:
+                keypair = kp
+                raise ValueError("test error")
+        except ValueError:
+            pass
+
+        assert keypair._cleared
+
+    def test_destructor_clears(self):
+        """Test __del__ clears key material."""
+        keypair = KeyPair.generate()
+        assert not keypair._cleared
+
+        keypair.__del__()
+
+        assert keypair._cleared
+
+    def test_repr_shows_cleared_status(self):
+        """Test repr shows cleared status."""
+        keypair = KeyPair.generate()
+        keypair.clear()
+
+        repr_str = repr(keypair)
+        assert "cleared" in repr_str
+
+    def test_from_seed_uses_secure_memory(self):
+        """Test from_seed uses secure memory."""
+        seed = b"a" * 32
+        keypair = KeyPair.from_seed(seed)
+
+        # Should have secure seed storage
+        assert keypair._secure_seed is not None
+        assert not keypair._secure_seed.is_cleared
+
+        keypair.clear()
+        assert keypair._secure_seed is None
+
+    def test_from_private_bytes_uses_secure_memory(self):
+        """Test from_private_bytes uses secure memory."""
+        seed = b"b" * 32
+        keypair = KeyPair.from_private_bytes(seed)
+
+        assert keypair._secure_seed is not None
+        assert not keypair._secure_seed.is_cleared
+
+        keypair.clear()
+
+    def test_from_encrypted_file_uses_secure_memory(self):
+        """Test loaded keypair uses secure memory."""
+        with KeyPair.generate() as original:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                path = Path(tmpdir) / "test.key"
+                original.to_encrypted_file(path, "password")
+
+                loaded = KeyPair.from_encrypted_file(path, password="password")
+
+                # Loaded keypair should have secure storage
+                assert loaded._secure_seed is not None
+                assert not loaded._secure_seed.is_cleared
+
+                loaded.clear()
+
+    def test_verify_still_works_after_clear(self):
+        """Test verify works after clear (uses public key only)."""
+        keypair = KeyPair.generate()
+        message = b"hello"
+        signature = keypair.sign(message)
+
+        keypair.clear()
+
+        # Verify should still work - only needs public key
+        assert keypair.verify(signature, message)
+
+    def test_public_key_bytes_works_after_clear(self):
+        """Test getting public key bytes works after clear."""
+        keypair = KeyPair.generate()
+        pk_before = keypair.public_key_bytes()
+
+        keypair.clear()
+
+        pk_after = keypair.public_key_bytes()
+        assert pk_before == pk_after
+
+    def test_to_agent_id_works_after_clear(self):
+        """Test to_agent_id works after clear."""
+        keypair = KeyPair.generate()
+        agent_id_before = keypair.to_agent_id()
+
+        keypair.clear()
+
+        agent_id_after = keypair.to_agent_id()
+        assert str(agent_id_before) == str(agent_id_after)

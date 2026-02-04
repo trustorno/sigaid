@@ -156,3 +156,49 @@ class AuthorityUnavailable(NetworkError):
     """Cannot reach the authority service."""
 
     pass
+
+
+class RateLimitExceeded(NetworkError):
+    """Rate limit exceeded - should retry after delay."""
+
+    def __init__(self, retry_after: int = 60, message: str = ""):
+        self.retry_after = retry_after
+        msg = f"Rate limit exceeded. Retry after {retry_after} seconds"
+        if message:
+            msg += f": {message}"
+        super().__init__(msg)
+
+
+class RetryableError(SigAidError):
+    """Transient error that should be retried."""
+
+    pass
+
+
+class RequestTimeout(NetworkError):
+    """Request timed out."""
+
+    pass
+
+
+class ServerError(NetworkError):
+    """Server returned an error (5xx)."""
+
+    def __init__(self, status_code: int, message: str = ""):
+        self.status_code = status_code
+        msg = f"Server error {status_code}"
+        if message:
+            msg += f": {message}"
+        super().__init__(msg)
+
+
+class ClientError(NetworkError):
+    """Client error (4xx) - request was invalid."""
+
+    def __init__(self, status_code: int, message: str = "", response_data: dict | None = None):
+        self.status_code = status_code
+        self.response_data = response_data or {}
+        msg = f"Client error {status_code}"
+        if message:
+            msg += f": {message}"
+        super().__init__(msg)

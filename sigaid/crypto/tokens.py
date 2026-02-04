@@ -117,16 +117,22 @@ class LeaseTokenManager:
         except Exception as e:
             raise TokenInvalid(f"Invalid token: {e}") from e
 
-    def decode_without_verify(self, token: str) -> dict[str, Any]:
-        """Decode token without verification (for inspection only).
+    def decode_token(self, token: str, check_expiry: bool = False) -> dict[str, Any]:
+        """Decode and verify a token, optionally checking expiry.
 
-        WARNING: Do not trust the contents for authorization!
+        Use this when you need the token contents but don't want expiry checks
+        (e.g., for inspection or logging purposes).
 
         Args:
             token: PASETO token string
+            check_expiry: Whether to raise TokenExpired if token is expired
 
         Returns:
-            Decoded payload (unverified)
+            Decoded payload
+
+        Raises:
+            TokenInvalid: If token cannot be decoded
+            TokenExpired: If check_expiry=True and token is expired
         """
         try:
             decoded = pyseto.decode(self._key, token.encode("utf-8") if isinstance(token, str) else token)
@@ -134,7 +140,15 @@ class LeaseTokenManager:
             if isinstance(payload, bytes):
                 import json
                 payload = json.loads(payload.decode("utf-8"))
+
+            if check_expiry:
+                exp = datetime.fromisoformat(payload["exp"])
+                if exp < datetime.now(timezone.utc):
+                    raise TokenExpired(f"Token expired at {exp.isoformat()}")
+
             return payload
+        except TokenExpired:
+            raise
         except Exception as e:
             raise TokenInvalid(f"Cannot decode token: {e}") from e
 

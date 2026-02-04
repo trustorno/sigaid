@@ -16,7 +16,7 @@ from sigaid.models.state import StateEntry, ActionType
 from sigaid.models.proof import ProofBundle
 from sigaid.models.lease import Lease
 from sigaid.constants import DEFAULT_AUTHORITY_URL
-from sigaid.exceptions import LeaseNotHeld
+from sigaid.exceptions import LeaseNotHeld, ClientError
 
 if TYPE_CHECKING:
     from sigaid.client.http import HttpClient
@@ -206,6 +206,61 @@ class AgentClient:
 
         self._initialized = True
 
+    async def register(self, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Register the agent with the Authority service.
+
+        This must be called once before acquiring leases.
+
+        Args:
+            metadata: Optional metadata to associate with the agent
+
+        Returns:
+            Agent registration response from Authority
+
+        Raises:
+            NetworkError: If registration fails
+        """
+        import base64
+
+        await self._initialize()
+
+        if not self._http_client:
+            raise RuntimeError("Cannot register without Authority URL")
+
+        try:
+            response = await self._http_client.post(
+                "/v1/agents",
+                json={
+                    "agent_id": str(self._agent_id),
+                    "public_key": base64.b64encode(
+                        self._keypair.public_key_bytes()
+                    ).decode("ascii"),
+                    "metadata": metadata or {},
+                },
+            )
+            return response
+        except ClientError as e:
+            # Already exists is okay (409 Conflict)
+            if e.status_code == 409:
+                return await self.get_agent_info()
+            raise RuntimeError(f"Registration failed: {e}") from e
+
+    async def get_agent_info(self) -> dict[str, Any]:
+        """Get agent information from Authority.
+
+        Returns:
+            Agent info including reputation
+
+        Raises:
+            NetworkError: If request fails
+        """
+        await self._initialize()
+
+        if not self._http_client:
+            raise RuntimeError("Cannot get info without Authority URL")
+
+        return await self._http_client.get(f"/v1/agents/{self._agent_id}")
+
     @asynccontextmanager
     async def lease(self) -> AsyncIterator[Lease]:
         """Acquire exclusive lease as async context manager.
@@ -310,16 +365,20 @@ class AgentClient:
     async def initialize_state_chain(
         self,
         summary: str = "Agent created",
+        sync_to_authority: bool = True,
     ) -> StateEntry:
         """Initialize the state chain with genesis entry.
 
         Args:
             summary: Summary for genesis entry
+            sync_to_authority: Whether to sync to Authority service
 
         Returns:
             Genesis StateEntry
         """
         await self._initialize()
+        if sync_to_authority and self._http_client:
+            return await self._state_chain.initialize_and_sync(summary)
         return self._state_chain.initialize(summary)
 
     def save_keypair(self, path: Path, password: str) -> None:

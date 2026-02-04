@@ -7,7 +7,15 @@ from typing import Any
 
 import httpx
 
-from sigaid.exceptions import NetworkError, AuthorityUnavailable
+from sigaid.exceptions import (
+    NetworkError,
+    AuthorityUnavailable,
+    RateLimitExceeded,
+    RequestTimeout,
+    ServerError,
+    ClientError,
+)
+from sigaid.client.retry import with_retry, RetryConfig
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +177,8 @@ class HttpClient:
         Raises:
             NetworkError: On request failure
             AuthorityUnavailable: If server is unreachable
+            RateLimitExceeded: If rate limit is hit
+            ServerError: If server returns 5xx
         """
         client = await self._get_client()
 
@@ -181,19 +191,37 @@ class HttpClient:
                 headers=headers,
             )
 
-            # Handle error responses
+            # Log rate limit headers if present
+            limit = response.headers.get("X-RateLimit-Limit")
+            remaining = response.headers.get("X-RateLimit-Remaining")
+            if limit and remaining:
+                logger.debug(f"Rate limit: {remaining}/{limit} remaining")
+
+            # Handle rate limiting
+            if response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 60))
+                raise RateLimitExceeded(retry_after=retry_after)
+
+            # Handle server errors (retryable)
+            if response.status_code >= 500:
+                try:
+                    error_data = response.json()
+                    message = error_data.get("detail", str(error_data))
+                except Exception:
+                    message = response.text
+                raise ServerError(response.status_code, message)
+
+            # Handle client errors
             if response.status_code >= 400:
                 try:
                     error_data = response.json()
+                    message = error_data.get("detail", str(error_data))
+                    if isinstance(message, dict):
+                        message = message.get("message", str(message))
                 except Exception:
                     error_data = {"error": response.text}
-
-                if response.status_code == 503:
-                    raise AuthorityUnavailable(
-                        f"Authority service unavailable: {error_data}"
-                    )
-
-                return error_data
+                    message = response.text
+                raise ClientError(response.status_code, message, response_data=error_data)
 
             # Return JSON response
             if response.status_code == 204:
@@ -202,10 +230,13 @@ class HttpClient:
             return response.json()
 
         except httpx.ConnectError as e:
+            logger.warning(f"Connection error to {self._base_url}: {e}")
             raise AuthorityUnavailable(f"Cannot connect to Authority: {e}") from e
         except httpx.TimeoutException as e:
-            raise NetworkError(f"Request timed out: {e}") from e
+            logger.warning(f"Request timeout to {self._base_url}: {e}")
+            raise RequestTimeout(f"Request timed out: {e}") from e
         except httpx.HTTPError as e:
+            logger.error(f"HTTP error: {e}")
             raise NetworkError(f"HTTP error: {e}") from e
 
     async def __aenter__(self) -> HttpClient:

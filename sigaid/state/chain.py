@@ -114,8 +114,15 @@ class StateChain:
 
     def _load_from_file(self) -> None:
         """Load chain from local file."""
-        data = json.loads(self._persistence_path.read_text())
-        self._entries = [StateEntry.from_dict(e) for e in data["entries"]]
+        try:
+            data = json.loads(self._persistence_path.read_text())
+            if not isinstance(data, dict) or "entries" not in data:
+                raise StateChainError(f"Invalid state file format: missing 'entries' key")
+            self._entries = [StateEntry.from_dict(e) for e in data["entries"]]
+        except json.JSONDecodeError as e:
+            raise StateChainError(f"Corrupt state file: {e}") from e
+        except KeyError as e:
+            raise StateChainError(f"Invalid state entry format: missing key {e}") from e
 
     async def _load_from_authority(self) -> None:
         """Load chain from Authority service."""
@@ -258,7 +265,7 @@ class StateChain:
         return None
 
     def initialize(self, summary: str = "Agent created") -> StateEntry:
-        """Initialize chain with genesis entry.
+        """Initialize chain with genesis entry (local only).
 
         Args:
             summary: Summary for genesis entry
@@ -275,6 +282,25 @@ class StateChain:
         entry = create_genesis_entry(self._agent_id, self._keypair, summary)
         self._entries.append(entry)
         self._save_to_file()
+        return entry
+
+    async def initialize_and_sync(self, summary: str = "Agent created") -> StateEntry:
+        """Initialize chain with genesis entry and sync to Authority.
+
+        Args:
+            summary: Summary for genesis entry
+
+        Returns:
+            Genesis StateEntry
+
+        Raises:
+            StateChainError: If chain is already initialized
+        """
+        entry = self.initialize(summary)
+
+        if self._http_client:
+            await self._sync_entry(entry)
+
         return entry
 
     def clear(self) -> None:

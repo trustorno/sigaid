@@ -160,9 +160,10 @@ class Lease:
 
     def __repr__(self) -> str:
         """Debug representation."""
+        session_display = self.session_id[:8] + "..." if len(self.session_id) > 8 else self.session_id
         return (
             f"Lease(agent_id={self.agent_id!r}, "
-            f"session_id={self.session_id[:8]}..., "
+            f"session_id={session_display}, "
             f"status={self.status.value}, "
             f"ttl={self.ttl_seconds:.0f}s)"
         )
