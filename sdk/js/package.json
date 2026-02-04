@@ -1,6 +1,6 @@
 {
   "name": "@sigaid/widget",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "SigAid Face Widget - Embeddable agent identity verification",
   "main": "dist/widget.js",
   "module": "dist/widget.esm.js",
@@ -34,6 +34,7 @@
     "@rollup/plugin-typescript": "^11.1.0",
     "rollup": "^4.0.0",
     "rollup-plugin-terser": "^7.0.0",
+    "tslib": "^2.6.0",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {},
