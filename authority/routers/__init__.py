@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import blake3
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Response, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,9 @@ from ..schemas import (
 )
 from ..services.tokens import get_token_service, TokenExpiredError, TokenInvalidError
 from ..services.crypto import CryptoService
+
+# Import AgentFace for visual identity generation
+from sigaid.identity.agent_face import AgentFace
 
 router = APIRouter()
 
@@ -619,3 +622,100 @@ def create_api_key(request: APIKeyCreate, db: Session = Depends(get_db)):
         created_at=api_key.created_at,
         rate_limit_per_minute=api_key.rate_limit_per_minute,
     )
+
+
+# === Agent Face Endpoints ===
+
+@router.get("/agents/{agent_id}/face.svg")
+def get_agent_face(
+    agent_id: str,
+    size: int = Query(default=200, ge=32, le=512, description="SVG size in pixels"),
+    animated: bool = Query(default=True, description="Include CSS animations"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get the visual identity face for an agent.
+
+    Returns an SVG image that is deterministically generated from the agent's
+    public key. The same agent will always produce the same face.
+
+    - **size**: Output size (32-512 pixels)
+    - **animated**: Include pulse/glow animations (default: true)
+    """
+    agent = db.query(SigAidAgent).filter(SigAidAgent.agent_id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    face = AgentFace(agent.public_key)
+    svg = face.to_svg(size=size, animated=animated)
+
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "X-Face-Fingerprint": face.fingerprint(),
+        }
+    )
+
+
+@router.get("/faces/generate")
+def generate_face_from_key(
+    key: str = Query(..., description="Base64-encoded 32-byte key"),
+    size: int = Query(default=200, ge=32, le=512, description="SVG size in pixels"),
+    animated: bool = Query(default=True, description="Include CSS animations"),
+):
+    """
+    Generate a face from any 32-byte key (no database lookup).
+
+    This endpoint allows generating faces without registering an agent.
+    Useful for previews, testing, or client-side key generation.
+
+    - **key**: Base64-encoded 32-byte key (public key, hash, etc.)
+    - **size**: Output size (32-512 pixels)
+    - **animated**: Include pulse/glow animations (default: true)
+    """
+    try:
+        key_bytes = base64.b64decode(key)
+        if len(key_bytes) < 32:
+            raise ValueError("Key must be at least 32 bytes")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid key format: {e}")
+
+    face = AgentFace(key_bytes[:32])
+    svg = face.to_svg(size=size, animated=animated)
+
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "X-Face-Fingerprint": face.fingerprint(),
+            "X-Face-Description": face.describe(),
+        }
+    )
+
+
+@router.get("/faces/{agent_id}/metadata")
+def get_face_metadata(
+    agent_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Get metadata about an agent's face without the full SVG.
+
+    Returns the fingerprint and human-readable description of features.
+    """
+    agent = db.query(SigAidAgent).filter(SigAidAgent.agent_id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    face = AgentFace(agent.public_key)
+
+    return {
+        "agent_id": agent_id,
+        "fingerprint": face.fingerprint(),
+        "description": face.describe(),
+        "features": face.full_description(),
+        "total_possible_faces": AgentFace.total_combinations(),
+    }
