@@ -13,6 +13,7 @@ One identity. One instance. Complete audit trail.
 ## The Problem
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'nodeBorder': '#333', 'mainBkg': 'transparent', 'clusterBkg': 'transparent'}}}%%
 graph LR
     Q1[Who is this agent?] --> A1[Identity]
     Q2[Is it the only instance?] --> A2[Exclusivity]
@@ -21,6 +22,16 @@ graph LR
     A1 --> S1[Ed25519 Keys]
     A2 --> S2[Lease System]
     A3 --> S3[State Chain]
+
+    style Q1 fill:none,stroke:#666
+    style Q2 fill:none,stroke:#666
+    style Q3 fill:none,stroke:#666
+    style A1 fill:none,stroke:#666
+    style A2 fill:none,stroke:#666
+    style A3 fill:none,stroke:#666
+    style S1 fill:none,stroke:#666
+    style S2 fill:none,stroke:#666
+    style S3 fill:none,stroke:#666
 ```
 
 ---
@@ -28,6 +39,7 @@ graph LR
 ## Architecture
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'mainBkg': 'transparent', 'clusterBkg': 'transparent'}}}%%
 graph TB
     subgraph Agents
         A1[Agent 1]
@@ -58,6 +70,20 @@ graph TB
     Authority --> Storage
 
     Services[Third-Party Services] -.-> Authority
+
+    style A1 fill:none,stroke:#666
+    style A2 fill:none,stroke:#666
+    style A3 fill:none,stroke:#666
+    style C fill:none,stroke:#666
+    style L fill:none,stroke:#666
+    style S fill:none,stroke:#666
+    style V fill:none,stroke:#666
+    style LM fill:none,stroke:#666
+    style SC fill:none,stroke:#666
+    style PV fill:none,stroke:#666
+    style PG fill:none,stroke:#666
+    style RD fill:none,stroke:#666
+    style Services fill:none,stroke:#666
 ```
 
 ---
@@ -65,6 +91,7 @@ graph TB
 ## Key Hierarchy
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'mainBkg': 'transparent'}}}%%
 graph TB
     Seed[Master Seed<br/>256 bits] --> HKDF[HKDF-SHA256]
 
@@ -73,6 +100,13 @@ graph TB
 
     IK --> PK[Public Key<br/>32 bytes]
     PK --> AID[AgentID<br/>aid_7Xq9YkPz...]
+
+    style Seed fill:none,stroke:#666
+    style HKDF fill:none,stroke:#666
+    style IK fill:none,stroke:#666
+    style SK fill:none,stroke:#666
+    style PK fill:none,stroke:#666
+    style AID fill:none,stroke:#666
 ```
 
 ```python
@@ -117,10 +151,16 @@ async with client1.lease():
 Every action is signed and hash-linked.
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'mainBkg': 'transparent'}}}%%
 graph LR
     G[Genesis<br/>seq: 0<br/>hash: 0xA1] --> E1[Entry 1<br/>seq: 1<br/>prev: 0xA1<br/>hash: 0xB2]
     E1 --> E2[Entry 2<br/>seq: 2<br/>prev: 0xB2<br/>hash: 0xC3]
     E2 --> E3[Entry 3<br/>seq: 3<br/>prev: 0xC3<br/>hash: 0xD4]
+
+    style G fill:none,stroke:#666
+    style E1 fill:none,stroke:#666
+    style E2 fill:none,stroke:#666
+    style E3 fill:none,stroke:#666
 ```
 
 Tamper with any entry and the chain breaks. Fork detection catches inconsistencies.
@@ -158,6 +198,7 @@ if result.valid:
 ## Cryptographic Stack
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'themeVariables': { 'mainBkg': 'transparent', 'clusterBkg': 'transparent'}}}%%
 graph TB
     subgraph Signatures
         ED[Ed25519]
@@ -176,6 +217,12 @@ graph TB
     end
 
     ED & BL & PA & DI --> DS[Domain Separation]
+
+    style ED fill:none,stroke:#666
+    style BL fill:none,stroke:#666
+    style PA fill:none,stroke:#666
+    style DI fill:none,stroke:#666
+    style DS fill:none,stroke:#666
 ```
 
 | Component | Algorithm | Purpose |
