@@ -111,3 +111,6 @@ dmypy.json
 *.log
 state.json
 agent_state.json
+
+# Unignore website lib (shadcn utils)
+!website/lib/
