@@ -14,64 +14,71 @@ One identity. One instance. Complete audit trail.
 
 SigAid is a cryptographic protocol that gives AI agents **verifiable identity**, **exclusive operation guarantees**, and **tamper-proof audit trails**. It solves the fundamental trust problem: *How do you know which agent you're dealing with, that it's the only one operating, and what it has done?*
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                                                             │
-│   "Who is this agent?"    "Is it the only one?"    "What has it done?"     │
-│            │                       │                        │               │
-│            ▼                       ▼                        ▼               │
-│   ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐        │
-│   │   IDENTITY      │    │   EXCLUSIVITY   │    │   AUDITABILITY  │        │
-│   │   Ed25519 Keys  │    │   Lease System  │    │   State Chain   │        │
-│   └─────────────────┘    └─────────────────┘    └─────────────────┘        │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Questions
+        Q1["Who is this agent?"]
+        Q2["Is it the only one?"]
+        Q3["What has it done?"]
+    end
+
+    subgraph Solutions
+        S1["IDENTITY<br/>Ed25519 Keys"]
+        S2["EXCLUSIVITY<br/>Lease System"]
+        S3["AUDITABILITY<br/>State Chain"]
+    end
+
+    Q1 --> S1
+    Q2 --> S2
+    Q3 --> S3
+
+    style S1 fill:#4f46e5,color:#fff
+    style S2 fill:#4f46e5,color:#fff
+    style S3 fill:#4f46e5,color:#fff
 ```
 
 ---
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              SIGAID ARCHITECTURE                            │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Agents["AI Agents"]
+        A1["Agent 1<br/>(Python)"]
+        A2["Agent 2<br/>(Python)"]
+        A3["Agent N<br/>(Python)"]
+    end
 
-    ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
-    │   Agent 1    │         │   Agent 2    │         │   Agent N    │
-    │  (Python)    │         │  (Python)    │         │  (Python)    │
-    └──────┬───────┘         └──────┬───────┘         └──────┬───────┘
-           │                        │                        │
-           │    SigAid SDK          │    SigAid SDK          │    SigAid SDK
-           │                        │                        │
-           └────────────────────────┼────────────────────────┘
-                                    │
-                                    ▼
-                    ┌───────────────────────────────┐
-                    │                               │
-                    │      AUTHORITY SERVICE        │
-                    │         (FastAPI)             │
-                    │                               │
-                    │  ┌─────────┐  ┌───────────┐  │
-                    │  │ Leases  │  │  State    │  │
-                    │  │ Manager │  │  Chains   │  │
-                    │  └─────────┘  └───────────┘  │
-                    │                               │
-                    └───────────────┬───────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-                    ▼               ▼               ▼
-            ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-            │  PostgreSQL │ │    Redis    │ │   Metrics   │
-            │  (State)    │ │  (Leases)   │ │ (Optional)  │
-            └─────────────┘ └─────────────┘ └─────────────┘
+    subgraph SDK["SigAid SDK"]
+        direction LR
+        SDK1["Crypto"]
+        SDK2["Lease"]
+        SDK3["State"]
+    end
 
+    subgraph Authority["Authority Service (FastAPI)"]
+        LM["Lease Manager"]
+        SC["State Chains"]
+        VM["Verification"]
+    end
 
-    ┌──────────────┐         ┌──────────────┐
-    │  Service A   │         │  Service B   │      Third-party services
-    │  (Verifier)  │         │  (Verifier)  │      verify agent proofs
-    └──────────────┘         └──────────────┘
+    subgraph Storage["Storage Layer"]
+        PG[("PostgreSQL<br/>State")]
+        RD[("Redis<br/>Leases")]
+    end
+
+    subgraph Verifiers["Third-Party Services"]
+        V1["Service A<br/>(Verifier)"]
+        V2["Service B<br/>(Verifier)"]
+    end
+
+    A1 & A2 & A3 --> SDK
+    SDK --> Authority
+    Authority --> PG & RD
+    V1 & V2 -.->|"verify proofs"| Authority
+
+    style Authority fill:#1e1b4b,color:#fff
+    style SDK fill:#312e81,color:#fff
 ```
 
 ---
@@ -82,30 +89,20 @@ SigAid is a cryptographic protocol that gives AI agents **verifiable identity**,
 
 Each agent has a unique cryptographic identity derived from an Ed25519 keypair:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      KEY HIERARCHY                              │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    SEED["Master Seed<br/>(256 bits from CSPRNG)"]
 
-    Master Seed (256 bits from CSPRNG)
-           │
-           ▼
-    ┌──────────────────────────────────────────────┐
-    │              HKDF-SHA256                     │
-    └──────────────────────────────────────────────┘
-           │                    │
-           ▼                    ▼
-    ┌─────────────┐      ┌─────────────┐
-    │  Identity   │      │   State     │
-    │    Key      │      │   Key       │
-    │  (Ed25519)  │      │  (Ed25519)  │
-    └──────┬──────┘      └─────────────┘
-           │
-           ▼
-    ┌─────────────┐
-    │  Public Key │ ──────► AgentID: aid_7Xq9YkPzN3mWvR5tH8jL2c...
-    │  (32 bytes) │         (Base58 encoded)
-    └─────────────┘
+    SEED --> HKDF["HKDF-SHA256"]
+
+    HKDF --> IK["Identity Key<br/>(Ed25519)"]
+    HKDF --> SK["State Key<br/>(Ed25519)"]
+
+    IK --> PK["Public Key<br/>(32 bytes)"]
+    PK --> AID["AgentID<br/>aid_7Xq9YkPzN3mWvR5tH8jL2c..."]
+
+    style SEED fill:#059669,color:#fff
+    style AID fill:#4f46e5,color:#fff
 ```
 
 ```python
@@ -121,33 +118,24 @@ print(f"Agent ID: {agent.agent_id}")
 
 Only ONE instance of an agent can operate at any time. Clones are rejected:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    LEASE ACQUISITION FLOW                       │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant I1 as Instance 1
+    participant Auth as Authority
+    participant I2 as Instance 2 (Clone)
 
-    Instance 1                    Authority                    Instance 2
-        │                            │                            │
-        │──── LeaseRequest ─────────►│                            │
-        │     (agent_id, sig)        │                            │
-        │                            │                            │
-        │                     ┌──────┴──────┐                     │
-        │                     │ Redis SETNX │                     │
-        │                     │  (atomic)   │                     │
-        │                     └──────┬──────┘                     │
-        │                            │                            │
-        │◄─── LeaseGranted ─────────│                            │
-        │     (PASETO token)         │                            │
-        │                            │                            │
-        │     ════════════════ LEASE ACTIVE ══════════════════   │
-        │                            │                            │
-        │                            │◄─── LeaseRequest ─────────│
-        │                            │     (same agent_id!)       │
-        │                            │                            │
-        │                            │──── REJECTED ─────────────►│
-        │                            │     "Lease held by         │
-        │                            │      another instance"     │
-        │                            │                            │
+    I1->>Auth: LeaseRequest (agent_id, signature)
+    Note over Auth: Redis SETNX<br/>(atomic)
+    Auth->>I1: LeaseGranted (PASETO token)
+
+    rect rgb(34, 197, 94, 0.1)
+        Note over I1,Auth: LEASE ACTIVE
+    end
+
+    I2->>Auth: LeaseRequest (same agent_id!)
+    Auth->>I2: REJECTED<br/>"Lease held by another instance"
+
+    Note over I2: Clone blocked!
 ```
 
 ```python
@@ -167,52 +155,40 @@ async with client1.lease():
 
 Every action is cryptographically signed and hash-linked into a tamper-proof chain:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      STATE CHAIN STRUCTURE                      │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph G["Genesis Entry (Seq: 0)"]
+        G1["prev_hash: 0x00..."]
+        G2["action: genesis"]
+        G3["signature: Ed25519"]
+        G4["entry_hash: 0xA1..."]
+    end
 
-    ┌─────────────────────┐
-    │    Genesis Entry    │
-    │    (Sequence: 0)    │
-    │                     │
-    │  prev_hash: 0x00... │
-    │  action: "genesis"  │
-    │  signature: Ed25519 │
-    │  entry_hash: 0xA1.. │──┐
-    └─────────────────────┘  │
-                             │
-    ┌────────────────────────┘
-    │
-    ▼
-    ┌─────────────────────┐
-    │    Entry 1          │
-    │    (Sequence: 1)    │
-    │                     │
-    │  prev_hash: 0xA1... │◄── Links to previous
-    │  action: "booking"  │
-    │  data_hash: 0xB2... │
-    │  signature: Ed25519 │
-    │  entry_hash: 0xC3.. │──┐
-    └─────────────────────┘  │
-                             │
-    ┌────────────────────────┘
-    │
-    ▼
-    ┌─────────────────────┐
-    │    Entry 2          │
-    │    (Sequence: 2)    │
-    │                     │
-    │  prev_hash: 0xC3... │◄── Links to previous
-    │  action: "payment"  │
-    │  data_hash: 0xD4... │
-    │  signature: Ed25519 │
-    │  entry_hash: 0xE5.. │
-    └─────────────────────┘
+    subgraph E1["Entry 1 (Seq: 1)"]
+        E1_1["prev_hash: 0xA1..."]
+        E1_2["action: booking"]
+        E1_3["data_hash: 0xB2..."]
+        E1_4["signature: Ed25519"]
+        E1_5["entry_hash: 0xC3..."]
+    end
 
-    Any tampering breaks the chain!
-    Fork detection catches inconsistencies.
+    subgraph E2["Entry 2 (Seq: 2)"]
+        E2_1["prev_hash: 0xC3..."]
+        E2_2["action: payment"]
+        E2_3["data_hash: 0xD4..."]
+        E2_4["signature: Ed25519"]
+        E2_5["entry_hash: 0xE5..."]
+    end
+
+    G4 -->|"hash link"| E1_1
+    E1_5 -->|"hash link"| E2_1
+
+    style G fill:#1e1b4b,color:#fff
+    style E1 fill:#312e81,color:#fff
+    style E2 fill:#4338ca,color:#fff
 ```
+
+> **Any tampering breaks the chain! Fork detection catches inconsistencies.**
 
 ```python
 async with agent.lease():
@@ -229,40 +205,23 @@ async with agent.lease():
 
 Services verify agent identity with cryptographic proof bundles:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    VERIFICATION PROTOCOL                        │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant S as Service
+    participant A as Agent
+    participant Auth as Authority
 
-    Service                      Agent                      Authority
-       │                           │                            │
-       │                           │                            │
-       │── Challenge (nonce) ─────►│                            │
-       │                           │                            │
-       │                           │   ┌─────────────────────┐  │
-       │                           │   │   Create Proof:     │  │
-       │                           │   │   - agent_id        │  │
-       │                           │   │   - lease_token     │  │
-       │                           │   │   - state_head      │  │
-       │                           │   │   - challenge_sig   │  │
-       │                           │   │   - bundle_sig      │  │
-       │                           │   └─────────────────────┘  │
-       │                           │                            │
-       │◄─── ProofBundle ─────────│                            │
-       │                           │                            │
-       │────────────────────── Verify Request ────────────────►│
-       │                                                        │
-       │                                     ┌─────────────────┐│
-       │                                     │ Checks:         ││
-       │                                     │ ✓ Signatures    ││
-       │                                     │ ✓ Lease active  ││
-       │                                     │ ✓ State valid   ││
-       │                                     │ ✓ No forks      ││
-       │                                     └─────────────────┘│
-       │                                                        │
-       │◄────────────────────── Verified ─────────────────────│
-       │     { valid: true, agent_id, reputation }              │
-       │                                                        │
+    S->>A: Challenge (nonce)
+
+    Note over A: Create Proof Bundle:<br/>- agent_id<br/>- lease_token<br/>- state_head<br/>- challenge_sig
+
+    A->>S: ProofBundle
+
+    S->>Auth: Verify Request
+
+    Note over Auth: Checks:<br/>✓ Signatures valid<br/>✓ Lease active<br/>✓ State valid<br/>✓ No forks detected
+
+    Auth->>S: Verified<br/>{valid: true, agent_id, reputation}
 ```
 
 ```python
@@ -284,33 +243,23 @@ if result.valid:
 
 ## Cryptographic Primitives
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    CRYPTOGRAPHIC STACK                          │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    APP["Application Layer"]
 
-    ┌─────────────────┐
-    │   APPLICATION   │
-    └────────┬────────┘
-             │
-    ┌────────┴────────┐
-    │                 │
-    ▼                 ▼
-┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
-│Ed25519  │     │ BLAKE3  │     │PASETO v4│     │Dilithium│
-│Signatures│    │ Hashing │     │ Tokens  │     │   -3    │
-└─────────┘     └─────────┘     └─────────┘     └─────────┘
-    │               │               │               │
-    │  128-bit      │  256-bit      │  Symmetric    │  Post-
-    │  security     │  security     │  AEAD         │  Quantum
-    │               │               │               │
-    └───────────────┴───────────────┴───────────────┘
-                         │
-              ┌──────────┴──────────┐
-              │  Domain Separation  │
-              │  (prevents cross-   │
-              │   protocol attacks) │
-              └─────────────────────┘
+    APP --> ED["Ed25519<br/>Signatures<br/><small>128-bit security</small>"]
+    APP --> BL["BLAKE3<br/>Hashing<br/><small>256-bit security</small>"]
+    APP --> PA["PASETO v4<br/>Tokens<br/><small>Symmetric AEAD</small>"]
+    APP --> DI["Dilithium-3<br/>Post-Quantum<br/><small>Hybrid mode</small>"]
+
+    ED & BL & PA & DI --> DS["Domain Separation<br/><small>Prevents cross-protocol attacks</small>"]
+
+    style APP fill:#1e1b4b,color:#fff
+    style ED fill:#4f46e5,color:#fff
+    style BL fill:#4f46e5,color:#fff
+    style PA fill:#4f46e5,color:#fff
+    style DI fill:#7c3aed,color:#fff
+    style DS fill:#059669,color:#fff
 ```
 
 | Component | Algorithm | Purpose |
@@ -371,6 +320,36 @@ asyncio.run(main())
 
 ## Project Structure
 
+```mermaid
+flowchart LR
+    subgraph SDK["sigaid/ (Python SDK)"]
+        direction TB
+        CR["crypto/<br/><small>Keys, Signing, Hashing, Tokens</small>"]
+        ID["identity/<br/><small>AgentID, Storage</small>"]
+        LE["lease/<br/><small>Manager, Heartbeat</small>"]
+        ST["state/<br/><small>Chain, Merkle</small>"]
+        VE["verification/<br/><small>Prover, Verifier</small>"]
+        CL["client/<br/><small>AgentClient, HTTP</small>"]
+    end
+
+    subgraph AUTH["authority/ (FastAPI)"]
+        direction TB
+        RO["routers/"]
+        SE["services/"]
+        AL["alembic/"]
+    end
+
+    subgraph WEB["website/ (Next.js)"]
+        direction TB
+        AP["app/"]
+        CO["components/"]
+    end
+
+    style SDK fill:#1e1b4b,color:#fff
+    style AUTH fill:#312e81,color:#fff
+    style WEB fill:#4338ca,color:#fff
+```
+
 ```
 sigaid/
 ├── crypto/                  # Cryptographic primitives
@@ -379,11 +358,7 @@ sigaid/
 │   ├── hashing.py           # BLAKE3 hashing
 │   ├── tokens.py            # PASETO lease tokens
 │   ├── hybrid.py            # Post-quantum (Ed25519 + Dilithium)
-│   ├── secure_memory.py     # Secure memory handling (mlock)
 │   └── hsm/                 # Hardware security module support
-│       ├── interface.py     # Abstract HSM interface
-│       ├── pkcs11.py        # PKCS#11 implementation
-│       └── software.py      # Software fallback
 │
 ├── identity/                # Identity management
 │   ├── agent_id.py          # AgentID format & validation
@@ -401,30 +376,30 @@ sigaid/
 │   ├── prover.py            # Create proof bundles
 │   └── verifier.py          # Verify proofs (online/offline)
 │
-├── client/                  # SDK interface
-│   ├── agent.py             # Main AgentClient class
-│   └── http.py              # HTTP transport to Authority
-│
-└── models/                  # Data models
-    ├── state.py             # StateEntry
-    ├── lease.py             # Lease
-    └── proof.py             # ProofBundle
+└── client/                  # SDK interface
+    ├── agent.py             # Main AgentClient class
+    └── http.py              # HTTP transport to Authority
 
 authority/                   # Authority Service (FastAPI)
 ├── routers/                 # API endpoints
 ├── services/                # Business logic
-├── alembic/                 # Database migrations
 └── main.py                  # Application entry
 
 website/                     # Marketing & Docs (Next.js)
-├── app/                     # Pages (landing, docs, dashboard)
-├── components/              # UI components
-└── public/                  # Static assets
+├── app/                     # Pages
+└── components/              # UI components
 ```
 
 ---
 
 ## Running the Authority Service
+
+### Docker (Recommended)
+
+```bash
+docker-compose up -d
+curl http://localhost:8001/health
+```
 
 ### Local Development
 
@@ -437,13 +412,6 @@ export REDIS_URL=redis://localhost:6379
 
 cd authority && alembic upgrade head
 uvicorn authority.main:app --port 8001
-```
-
-### Docker
-
-```bash
-docker-compose up -d
-curl http://localhost:8001/health
 ```
 
 ### API Endpoints
@@ -461,23 +429,6 @@ curl http://localhost:8001/health
 
 ---
 
-## Running the Website
-
-```bash
-cd website
-npm install
-npm run dev
-# Open http://localhost:3000
-```
-
-Features:
-- Landing page with interactive demos
-- Full documentation
-- Interactive playground (no API key needed)
-- Developer dashboard
-
----
-
 ## Running Tests
 
 ```bash
@@ -489,12 +440,14 @@ pytest tests/ -v --cov=sigaid
 
 ## Security Features
 
-- **Domain-separated signatures**: Prevents cross-protocol attacks
-- **Constant-time operations**: Resistant to timing attacks
-- **Encrypted keyfiles**: scrypt + ChaCha20-Poly1305
-- **HSM support**: Keys never leave hardware
-- **Post-quantum ready**: Hybrid Ed25519 + Dilithium-3
-- **Fork detection**: Catches state chain tampering
+| Feature | Description |
+|---------|-------------|
+| **Domain-separated signatures** | Prevents cross-protocol attacks |
+| **Constant-time operations** | Resistant to timing attacks |
+| **Encrypted keyfiles** | scrypt + ChaCha20-Poly1305 |
+| **HSM support** | Keys never leave hardware |
+| **Post-quantum ready** | Hybrid Ed25519 + Dilithium-3 |
+| **Fork detection** | Catches state chain tampering |
 
 ---
 
@@ -520,4 +473,4 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 - **Website**: https://sigaid.com
 - **Documentation**: https://sigaid.com/docs
-- **GitHub**: https://github.com/sigaid/sigaid
+- **GitHub**: https://github.com/trustorno/sigaid
