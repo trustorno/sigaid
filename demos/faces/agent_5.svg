@@ -1,0 +1,281 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+
+<defs>
+    <!-- Holographic gradient -->
+    <linearGradient id="holo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#00ff41" stop-opacity="0.9"/>
+        <stop offset="25%" stop-color="#008f11" stop-opacity="0.7"/>
+        <stop offset="50%" stop-color="#00ff41" stop-opacity="0.8"/>
+        <stop offset="75%" stop-color="#008f11" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="#00ff41" stop-opacity="0.9"/>
+    </linearGradient>
+
+    <!-- Face gradient (glass effect) -->
+    <radialGradient id="face-glass" cx="30%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="white" stop-opacity="0.3"/>
+        <stop offset="50%" stop-color="#00ff41" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="#008f11" stop-opacity="0.1"/>
+    </radialGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="4" result="blur"/>
+        <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+    </filter>
+
+    <!-- Strong glow -->
+    <filter id="glow-strong" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="8" result="blur"/>
+        <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+    </filter>
+
+    <!-- Glitch filter -->
+    <filter id="glitch">
+        <feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red"/>
+        <feOffset in="red" dx="2" dy="0" result="red-shift"/>
+        <feColorMatrix type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="green"/>
+        <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="blue"/>
+        <feOffset in="blue" dx="-2" dy="0" result="blue-shift"/>
+        <feBlend in="red-shift" in2="green" mode="screen" result="rg"/>
+        <feBlend in="rg" in2="blue-shift" mode="screen"/>
+    </filter>
+
+    <!-- Scan line pattern -->
+    <pattern id="scanlines" patternUnits="userSpaceOnUse" width="4" height="4">
+        <line x1="0" y1="0" x2="4" y2="0" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+    </pattern>
+
+    <!-- Noise texture -->
+    <filter id="noise">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" result="noise"/>
+        <feColorMatrix type="saturate" values="0"/>
+        <feBlend in="SourceGraphic" in2="noise" mode="overlay"/>
+    </filter>
+
+    <!-- Clip path for face -->
+    <clipPath id="face-clip">
+        <rect x="35.50980392156863" y="26.07843137254902" width="128.98039215686273" height="147.84313725490196" rx="19.34705882352941"/>
+    </clipPath>
+</defs>
+
+<style>
+    @keyframes pulse {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
+    }
+    @keyframes glow-pulse {
+        0%, 100% { filter: drop-shadow(0 0 5px #00ff41); }
+        50% { filter: drop-shadow(0 0 15px #00ff41) drop-shadow(0 0 25px #00ff41); }
+    }
+    @keyframes data-fall {
+        0% { transform: translateY(-20px); opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { transform: translateY(220px); opacity: 0; }
+    }
+    @keyframes scan {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(200px); }
+    }
+    @keyframes float {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-10px) rotate(180deg); }
+    }
+    @keyframes glitch {
+        0%, 90%, 100% { transform: translate(0); filter: none; }
+        92% { transform: translate(-2px, 1px); filter: url(#glitch); }
+        94% { transform: translate(2px, -1px); filter: url(#glitch); }
+        96% { transform: translate(-1px, 2px); filter: none; }
+        98% { transform: translate(1px, -2px); filter: url(#glitch); }
+    }
+    @keyframes holo-shift {
+        0%, 100% { filter: hue-rotate(0deg); }
+        50% { filter: hue-rotate(30deg); }
+    }
+    @keyframes circuit-flow {
+        0% { stroke-dashoffset: 20; }
+        100% { stroke-dashoffset: 0; }
+    }
+    @keyframes eye-scan {
+        0%, 100% { transform: scaleX(1); }
+        50% { transform: scaleX(1.1); }
+    }
+    @keyframes ring-rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .pulse { animation: pulse 1.7431372549019608s ease-in-out infinite; }
+    .glow-pulse { animation: glow-pulse 1.7431372549019608s ease-in-out infinite; }
+    .float { animation: float 3.4862745098039216s ease-in-out infinite; }
+    .glitch { animation: glitch 12.490196078431373s steps(1) infinite; }
+    .holo-shift { animation: holo-shift 5.229411764705882s ease-in-out infinite; }
+    .circuit-flow { animation: circuit-flow 5.811764705882353s linear infinite; }
+    .eye-scan { animation: eye-scan 1.7431372549019608s ease-in-out infinite; }
+    .ring-rotate { animation: ring-rotate 11.623529411764705s linear infinite; }
+</style>
+
+<rect width="200" height="200" fill="#0a0a0f"/>
+<rect width="200" height="200" fill="url(#scanlines)" opacity="0.3"/>
+<g class="grid">
+<line x1="0" y1="0" x2="0" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="20" y1="0" x2="20" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="40" y1="0" x2="40" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="60" y1="0" x2="60" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="80" y1="0" x2="80" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="100" y1="0" x2="100" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="120" y1="0" x2="120" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="140" y1="0" x2="140" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="160" y1="0" x2="160" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="180" y1="0" x2="180" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="200" y1="0" x2="200" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="0" y1="0" x2="200" y2="0" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="0" y1="20" x2="200" y2="20" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="0" y1="40" x2="200" y2="40" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="0" y1="60" x2="200" y2="60" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="0" y1="80" x2="200" y2="80" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="0" y1="100" x2="200" y2="100" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="0" y1="120" x2="200" y2="120" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="0" y1="140" x2="200" y2="140" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="0" y1="160" x2="200" y2="160" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+<line x1="0" y1="180" x2="200" y2="180" stroke="#00ff41" stroke-width="0.5" opacity="0.05"/>
+<line x1="0" y1="200" x2="200" y2="200" stroke="#00ff41" stroke-width="0.5" opacity="0.1"/>
+</g>
+<g class="data-rain" opacity="0.6"><g class="data-column"><text x="44" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 6.5076885081408475s linear 4.116312845369482s infinite;">メ</text>
+<text x="44" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 6.5076885081408475s linear 4.116312845369482s infinite;">ヨ</text>
+<text x="44" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 6.5076885081408475s linear 4.116312845369482s infinite;">テ</text></g>
+<g class="data-column"><text x="93" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 4.690212176628013s linear 2.4265495318919865s infinite;">キ</text>
+<text x="93" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 4.690212176628013s linear 2.4265495318919865s infinite;">ラ</text>
+<text x="93" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 4.690212176628013s linear 2.4265495318919865s infinite;">ケ</text>
+<text x="93" y="42" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.55"  style="animation: data-fall 4.690212176628013s linear 2.4265495318919865s infinite;">ノ</text></g>
+<g class="data-column"><text x="59" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 6.737966550563696s linear 1.9761903747659577s infinite;">エ</text>
+<text x="59" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 6.737966550563696s linear 1.9761903747659577s infinite;">A</text>
+<text x="59" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 6.737966550563696s linear 1.9761903747659577s infinite;">コ</text>
+<text x="59" y="42" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.55"  style="animation: data-fall 6.737966550563696s linear 1.9761903747659577s infinite;">5</text>
+<text x="59" y="56" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.4"  style="animation: data-fall 6.737966550563696s linear 1.9761903747659577s infinite;">0</text></g>
+<g class="data-column"><text x="187" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 3.200103419511404s linear 0.6589345910009142s infinite;">ソ</text>
+<text x="187" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 3.200103419511404s linear 0.6589345910009142s infinite;">リ</text>
+<text x="187" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 3.200103419511404s linear 0.6589345910009142s infinite;">コ</text>
+<text x="187" y="42" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.55"  style="animation: data-fall 3.200103419511404s linear 0.6589345910009142s infinite;">D</text></g>
+<g class="data-column"><text x="99" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 4.756432455922118s linear 1.3041173431476598s infinite;">シ</text>
+<text x="99" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 4.756432455922118s linear 1.3041173431476598s infinite;">フ</text>
+<text x="99" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 4.756432455922118s linear 1.3041173431476598s infinite;">B</text>
+<text x="99" y="42" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.55"  style="animation: data-fall 4.756432455922118s linear 1.3041173431476598s infinite;">3</text>
+<text x="99" y="56" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.4"  style="animation: data-fall 4.756432455922118s linear 1.3041173431476598s infinite;">ス</text>
+<text x="99" y="70" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.25"  style="animation: data-fall 4.756432455922118s linear 1.3041173431476598s infinite;">カ</text></g>
+<g class="data-column"><text x="21" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 3.04081298544374s linear 2.8377859342822283s infinite;">6</text>
+<text x="21" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 3.04081298544374s linear 2.8377859342822283s infinite;">0</text>
+<text x="21" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 3.04081298544374s linear 2.8377859342822283s infinite;">メ</text>
+<text x="21" y="42" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.55"  style="animation: data-fall 3.04081298544374s linear 2.8377859342822283s infinite;">テ</text>
+<text x="21" y="56" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.4"  style="animation: data-fall 3.04081298544374s linear 2.8377859342822283s infinite;">ウ</text></g>
+<g class="data-column"><text x="184" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 6.014130957284737s linear 1.5950362099238546s infinite;">5</text>
+<text x="184" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 6.014130957284737s linear 1.5950362099238546s infinite;">A</text>
+<text x="184" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 6.014130957284737s linear 1.5950362099238546s infinite;">ホ</text>
+<text x="184" y="42" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.55"  style="animation: data-fall 6.014130957284737s linear 1.5950362099238546s infinite;">ラ</text>
+<text x="184" y="56" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.4"  style="animation: data-fall 6.014130957284737s linear 1.5950362099238546s infinite;">8</text>
+<text x="184" y="70" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.25"  style="animation: data-fall 6.014130957284737s linear 1.5950362099238546s infinite;">5</text>
+<text x="184" y="84" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.10000000000000009"  style="animation: data-fall 6.014130957284737s linear 1.5950362099238546s infinite;">エ</text>
+<text x="184" y="98" fill="#00ff41" font-family="monospace" font-size="8" opacity="-0.050000000000000044"  style="animation: data-fall 6.014130957284737s linear 1.5950362099238546s infinite;">0</text></g>
+<g class="data-column"><text x="37" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 4.775115082757205s linear 4.065992160239836s infinite;">シ</text>
+<text x="37" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 4.775115082757205s linear 4.065992160239836s infinite;">ス</text>
+<text x="37" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 4.775115082757205s linear 4.065992160239836s infinite;">ン</text>
+<text x="37" y="42" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.55"  style="animation: data-fall 4.775115082757205s linear 4.065992160239836s infinite;">C</text></g>
+<g class="data-column"><text x="97" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 4.338335986112499s linear 4.9067947071190146s infinite;">ス</text>
+<text x="97" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 4.338335986112499s linear 4.9067947071190146s infinite;">シ</text>
+<text x="97" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 4.338335986112499s linear 4.9067947071190146s infinite;">9</text></g>
+<g class="data-column"><text x="24" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 4.771194976354628s linear 2.451040025463469s infinite;">B</text>
+<text x="24" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 4.771194976354628s linear 2.451040025463469s infinite;">ウ</text>
+<text x="24" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 4.771194976354628s linear 2.451040025463469s infinite;">8</text>
+<text x="24" y="42" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.55"  style="animation: data-fall 4.771194976354628s linear 2.451040025463469s infinite;">ク</text>
+<text x="24" y="56" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.4"  style="animation: data-fall 4.771194976354628s linear 2.451040025463469s infinite;">ホ</text>
+<text x="24" y="70" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.25"  style="animation: data-fall 4.771194976354628s linear 2.451040025463469s infinite;">ツ</text></g>
+<g class="data-column"><text x="139" y="0" fill="#00ff41" font-family="monospace" font-size="10" opacity="1.0" filter="url(#glow)" style="animation: data-fall 3.759485391598192s linear 0.37421367145521356s infinite;">シ</text>
+<text x="139" y="14" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.85"  style="animation: data-fall 3.759485391598192s linear 0.37421367145521356s infinite;">キ</text>
+<text x="139" y="28" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.7"  style="animation: data-fall 3.759485391598192s linear 0.37421367145521356s infinite;">モ</text>
+<text x="139" y="42" fill="#00ff41" font-family="monospace" font-size="8" opacity="0.55"  style="animation: data-fall 3.759485391598192s linear 0.37421367145521356s infinite;">ツ</text></g></g>
+
+<g class="face-base">
+
+
+<rect x="35.50980392156863" y="26.07843137254902" width="128.98039215686273" height="147.84313725490196" rx="19.34705882352941"
+    fill="url(#face-glass)" stroke="#00ff41" stroke-width="2" class="holo-shift glitch"/>
+</g>
+<g class="circuits" clip-path="url(#face-clip)"><path d="M 48.4078431372549 84.27787762551348 L 48.4078431372549 100.91567009475273 L 47.36998459913996 100.91567009475273 L 51.59396580471304 100.91567009475273 L 51.59396580471304 117.26840610216573 L 51.59396580471304 119.29979177256865 L 39.26372996452501 119.29979177256865 L 40.90268538968657 119.29979177256865 L 40.90268538968657 121.28503845364887" fill="none" stroke="#00ff41" stroke-width="1" opacity="0.5" class="circuit-flow" stroke-dasharray="10 10"/>
+<circle cx="40.90268538968657" cy="121.28503845364887" r="3" fill="#00ff41" filter="url(#glow)" class="pulse"/>
+<path d="M 151.5921568627451 84.16288538424607 L 150.747292659701 84.16288538424607 L 150.747292659701 67.76689515157429 L 150.747292659701 69.7429691074544 L 142.32232268865585 69.7429691074544" fill="none" stroke="#00ff41" stroke-width="1" opacity="0.5" class="circuit-flow" stroke-dasharray="10 10"/>
+<circle cx="142.32232268865585" cy="69.7429691074544" r="3" fill="#00ff41" filter="url(#glow)" class="pulse"/>
+<path d="M 107.37410169338212 40.86274509803921 L 107.37410169338212 48.48061892837265 L 121.03454027267279 48.48061892837265 L 122.23613445522525 48.48061892837265 L 122.23613445522525 62.09454374927936 L 112.19824069769557 62.09454374927936 L 112.19824069769557 44.168673897243266 L 112.19824069769557 39.04040811973555 L 126.93605901229938 39.04040811973555" fill="none" stroke="#00ff41" stroke-width="1" opacity="0.5" class="circuit-flow" stroke-dasharray="10 10"/>
+<circle cx="126.93605901229938" cy="39.04040811973555" r="3" fill="#00ff41" filter="url(#glow)" class="pulse"/>
+<path d="M 117.60040502569979 151.7450980392157 L 117.60040502569979 142.209957357002 L 97.61847362110262 142.209957357002 L 96.42864390368042 142.209957357002 L 96.42864390368042 152.59918276091773" fill="none" stroke="#00ff41" stroke-width="1" opacity="0.5" class="circuit-flow" stroke-dasharray="10 10"/>
+<circle cx="96.42864390368042" cy="152.59918276091773" r="3" fill="#00ff41" filter="url(#glow)" class="pulse"/>
+<path d="M 48.4078431372549 89.42996588998975 L 48.4078431372549 71.36142283506224 L 61.25881481690723 71.36142283506224 L 61.25881481690723 74.67294307119644 L 77.64697734263132 74.67294307119644" fill="none" stroke="#00ff41" stroke-width="1" opacity="0.5" class="circuit-flow" stroke-dasharray="10 10"/>
+<circle cx="77.64697734263132" cy="74.67294307119644" r="3" fill="#00ff41" filter="url(#glow)" class="pulse"/>
+<path d="M 151.5921568627451 83.60235156286294 L 151.5921568627451 91.79502847772724 L 134.9995675847752 91.79502847772724 L 134.9995675847752 111.7601700442304 L 123.37547286033171 111.7601700442304 L 121.74082337122758 111.7601700442304 L 121.74082337122758 109.88546728975612" fill="none" stroke="#00ff41" stroke-width="1" opacity="0.5" class="circuit-flow" stroke-dasharray="10 10"/>
+<circle cx="121.74082337122758" cy="109.88546728975612" r="3" fill="#00ff41" filter="url(#glow)" class="pulse"/></g>
+<g class="eyes"><circle cx="83.9843137254902" cy="90.0" r="16.274509803921568" fill="rgba(0,0,0,0.5)" stroke="#00ff41" stroke-width="2"/>
+<circle cx="83.9843137254902" cy="90.0" r="9.76470588235294" fill="none" stroke="#00ff41" stroke-width="1" opacity="0.7"/>
+<line x1="67.70980392156864" y1="90.0" x2="100.25882352941176" y2="90.0" stroke="#00ff41" stroke-width="1" opacity="0.5"/>
+<line x1="83.9843137254902" y1="73.72549019607843" x2="83.9843137254902" y2="106.27450980392157" stroke="#00ff41" stroke-width="1" opacity="0.5"/>
+<circle cx="83.9843137254902" cy="90.0" r="3" fill="#00ff41" filter="url(#glow)" class="pulse"/>
+<circle cx="116.0156862745098" cy="90.0" r="16.274509803921568" fill="rgba(0,0,0,0.5)" stroke="#00ff41" stroke-width="2"/>
+<circle cx="116.0156862745098" cy="90.0" r="9.76470588235294" fill="none" stroke="#00ff41" stroke-width="1" opacity="0.7"/>
+<line x1="99.74117647058824" y1="90.0" x2="132.29019607843136" y2="90.0" stroke="#00ff41" stroke-width="1" opacity="0.5"/>
+<line x1="116.0156862745098" y1="73.72549019607843" x2="116.0156862745098" y2="106.27450980392157" stroke="#00ff41" stroke-width="1" opacity="0.5"/>
+<circle cx="116.0156862745098" cy="90.0" r="3" fill="#00ff41" filter="url(#glow)" class="pulse"/></g>
+<g class="mouth"><line x1="78.77450980392157" y1="137.8235294117647" x2="121.22549019607843" y2="137.8235294117647" stroke="#00ff41" stroke-width="3" stroke-linecap="round" filter="url(#glow)" class="pulse"/></g>
+<g class="particles"><circle cx="141" cy="161" r="1.3844616844853643" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 2.4915638208989153s;"/>
+<circle cx="74" cy="20" r="2.4023236225063718" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.560533465616342s;"/>
+<circle cx="112" cy="44" r="2.325924385463546" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.2915016932398615s;"/>
+<circle cx="113" cy="173" r="2.659064492243605" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.32318675505019345s;"/>
+<circle cx="75" cy="37" r="1.995161069980144" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.9491640966417894s;"/>
+<circle cx="163" cy="51" r="2.213433043127857" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.619147567735272s;"/>
+<circle cx="64" cy="52" r="2.892088649575599" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.7368853566705398s;"/>
+<circle cx="128" cy="88" r="2.1146401220067848" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 2.5651187198924235s;"/>
+<circle cx="55" cy="168" r="1.195232980427265" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 2.070543773035406s;"/>
+<circle cx="179" cy="141" r="2.0072428081033484" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.5929444650290451s;"/>
+<circle cx="150" cy="87" r="2.0195816406168965" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.21426249611650494s;"/>
+<circle cx="144" cy="154" r="1.439910059335864" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.7316588515319867s;"/>
+<circle cx="102" cy="71" r="1.5336845969208117" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.270205570491541s;"/>
+<circle cx="121" cy="59" r="2.314881449882149" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.34878666325319496s;"/>
+<circle cx="21" cy="66" r="2.9461480344306636" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.48202640488843795s;"/>
+<circle cx="112" cy="102" r="2.672793376001075" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.7073773243041475s;"/>
+<circle cx="50" cy="119" r="2.127994588703712" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.2214648742518173s;"/>
+<circle cx="32" cy="88" r="2.43368804596531" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.10209933858936715s;"/>
+<circle cx="148" cy="149" r="1.7203277819403466" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 2.4230994642480153s;"/>
+<circle cx="53" cy="169" r="1.1259478060853458" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.05082656247798123s;"/>
+<circle cx="113" cy="183" r="2.1473421323411004" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 2.231255813674874s;"/>
+<circle cx="108" cy="15" r="2.2916929697346458" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.4970587613451913s;"/>
+<circle cx="173" cy="23" r="2.765810071902913" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 2.6067105254391856s;"/>
+<circle cx="163" cy="59" r="1.3555960705507162" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 2.909606324829871s;"/>
+<circle cx="36" cy="66" r="2.210803541898477" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.4916241499344625s;"/>
+<circle cx="54" cy="112" r="1.2440440372893202" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.7422094804263408s;"/>
+<circle cx="47" cy="127" r="2.028965245567623" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.2712843801563096s;"/>
+<circle cx="159" cy="115" r="2.6329227739692924" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 1.3660087784868398s;"/>
+<circle cx="27" cy="129" r="1.2227908985046005" fill="#00ff41" opacity="0.6" class="float" style="animation-delay: 0.633646794970505s;"/></g>
+
+<g class="scan-effect" opacity="0.15">
+    <rect x="0" y="0" width="200" height="2" fill="#00ff41">
+        <animate attributeName="y" from="0" to="200" dur="5.811764705882353s" repeatCount="indefinite"/>
+    </rect>
+</g>
+
+<g class="glitch-overlay" opacity="0">
+    <rect x="0" y="40" width="200" height="5" fill="#00ff41"/>
+    <rect x="0" y="120" width="200" height="3" fill="#00ff41"/>
+    <rect x="0" y="160" width="200" height="4" fill="#00ff41"/>
+    <animate attributeName="opacity" values="0;0;0.3;0;0;0.2;0;0;0;0" dur="12.490196078431373s" repeatCount="indefinite"/>
+</g>
+
+<circle cx="100" cy="100" r="88.92156862745098" fill="none" stroke="#00ff41"
+    stroke-width="2" opacity="0.6" class="glow-pulse" filter="url(#glow)"/>
+<circle cx="100" cy="100" r="93.92156862745098" fill="none" stroke="#00ff41"
+    stroke-width="1" opacity="0.3"/>
+</svg>

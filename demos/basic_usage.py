@@ -1,144 +1,84 @@
 #!/usr/bin/env python3
-"""Basic usage demo for SigAid protocol.
+"""
+Basic usage demo for SigAid SDK.
 
-This demo shows:
-1. Creating an agent with fresh identity
-2. Acquiring an exclusive lease
-3. Recording actions to the state chain
-4. Creating verification proofs
+This demo shows how to:
+1. Create an agent identity
+2. Record actions to state chain
+3. Create proof bundles for verification
 """
 
 import asyncio
-from pathlib import Path
-import tempfile
-
-from sigaid import AgentClient, Verifier, ActionType
+from sigaid import AgentClient
+from sigaid.models.state import ActionType
 
 
 async def main():
     print("=" * 60)
     print("SigAid Basic Usage Demo")
     print("=" * 60)
-
-    # Create a temporary directory for persistence
-    with tempfile.TemporaryDirectory() as tmpdir:
-        state_path = Path(tmpdir) / "agent_state.json"
-        key_path = Path(tmpdir) / "agent.key"
-
-        # 1. Create a new agent
-        print("\n1. Creating new agent...")
-        client = AgentClient.create(
-            authority_url="",  # Offline mode for demo
-            state_persistence_path=state_path,
-        )
-
-        print(f"   Agent ID: {client.agent_id}")
-        print(f"   Agent ID (short): {client.agent_id.short}")
-
-        # Save keypair for later
-        client.save_keypair(key_path, "demo_password")
-        print(f"   Keypair saved to: {key_path}")
-
-        try:
-            # 2. Acquire exclusive lease
-            print("\n2. Acquiring exclusive lease...")
-            async with client.lease() as lease:
-                print(f"   Session ID: {lease.session_id[:16]}...")
-                print(f"   Expires at: {lease.expires_at}")
-                print(f"   Has lease: {client.has_lease}")
-
-                # 3. Initialize state chain
-                print("\n3. Initializing state chain...")
-                genesis = await client.initialize_state_chain("Demo agent created")
-                print(f"   Genesis entry created (seq: {genesis.sequence})")
-
-                # 4. Record actions
-                print("\n4. Recording actions...")
-
-                # Transaction 1
-                entry1 = await client.record_action(
-                    action_type=ActionType.TRANSACTION,
-                    action_data={
-                        "type": "hotel_booking",
-                        "hotel": "Grand Hotel",
-                        "nights": 3,
-                        "amount_chf": 450,
-                    },
-                    action_summary="Booked hotel: Grand Hotel for 3 nights",
-                    sync_to_authority=False,
-                )
-                print(f"   Recorded: {entry1.action_summary} (seq: {entry1.sequence})")
-
-                # Transaction 2
-                entry2 = await client.record_action(
-                    action_type=ActionType.TRANSACTION,
-                    action_data={
-                        "type": "flight_booking",
-                        "flight": "LX1234",
-                        "from": "ZRH",
-                        "to": "LHR",
-                        "amount_chf": 280,
-                    },
-                    action_summary="Booked flight: ZRH to LHR",
-                    sync_to_authority=False,
-                )
-                print(f"   Recorded: {entry2.action_summary} (seq: {entry2.sequence})")
-
-                # Attestation
-                entry3 = await client.record_action(
-                    action_type=ActionType.ATTESTATION,
-                    action_data={"verified": True, "by": "demo_service"},
-                    action_summary="Identity verified by demo service",
-                    sync_to_authority=False,
-                )
-                print(f"   Recorded: {entry3.action_summary} (seq: {entry3.sequence})")
-
-                # 5. Create verification proof
-                print("\n5. Creating verification proof...")
-                verifier = Verifier()
-                challenge = verifier.create_challenge()
-                print(f"   Challenge: {challenge.hex()[:32]}...")
-
-                proof = client.create_proof(challenge)
-                print(f"   Proof created for agent: {proof.agent_id}")
-                print(f"   State head sequence: {proof.state_head.sequence}")
-
-                # 6. Verify the proof (offline)
-                print("\n6. Verifying proof (offline)...")
-                result = verifier.verify_offline(proof, challenge)
-
-                print(f"   Valid: {result.valid}")
-                print(f"   Signature valid: {result.signature_valid}")
-                print(f"   Challenge valid: {result.challenge_valid}")
-                print(f"   Chain valid: {result.chain_valid}")
-
-            # Lease automatically released
-            print("\n7. Lease released")
-            print(f"   Has lease: {client.has_lease}")
-
-        finally:
-            await client.close()
-
-        # 8. Reload agent from file
-        print("\n8. Reloading agent from saved keypair...")
-        client2 = AgentClient.from_file(
-            key_path,
-            "demo_password",
-            authority_url="",
-            state_persistence_path=state_path,
-        )
-
-        try:
-            async with client2.lease():
-                print(f"   Reloaded agent: {client2.agent_id.short}")
-                print(f"   State chain length: {len(list(client2._state_chain))}")
-                print(f"   Current head: seq {client2.state_head.sequence}")
-        finally:
-            await client2.close()
-
+    
+    # Create a new agent
+    print("\n1. Creating new agent...")
+    client = AgentClient.create()
+    print(f"   Agent ID: {client.agent_id}")
+    
+    # Note: In this demo, we don't connect to a real Authority service
+    # In production, the client would communicate with the Authority
+    
+    print("\n2. Agent identity details:")
+    print(f"   Public key: {client.keypair.public_key_bytes().hex()[:32]}...")
+    
+    # Demonstrate state chain (local only in this demo)
+    print("\n3. State chain operations (local mode):")
+    
+    # Manually append to chain without lease (for demo)
+    entry1 = client._state_chain.append(
+        ActionType.TRANSACTION,
+        "Processed payment of $100",
+        {"amount": 100, "currency": "USD"},
+    )
+    print(f"   Entry 1: seq={entry1.sequence}, hash={entry1.entry_hash.hex()[:16]}...")
+    
+    entry2 = client._state_chain.append(
+        ActionType.TOOL_CALL,
+        "Called search API",
+        {"query": "hotels in Paris"},
+    )
+    print(f"   Entry 2: seq={entry2.sequence}, hash={entry2.entry_hash.hex()[:16]}...")
+    
+    entry3 = client._state_chain.append(
+        ActionType.DECISION,
+        "Selected hotel based on price",
+        {"hotel_id": "H123", "price": 180},
+    )
+    print(f"   Entry 3: seq={entry3.sequence}, hash={entry3.entry_hash.hex()[:16]}...")
+    
+    # Verify chain integrity
+    print("\n4. Verifying state chain integrity...")
+    is_valid = client._state_chain.verify()
+    print(f"   Chain valid: {is_valid}")
+    print(f"   Chain length: {client._state_chain.length}")
+    print(f"   Chain head hash: {client._state_chain.head.entry_hash.hex()[:32]}...")
+    
+    # Show signature verification
+    print("\n5. Verifying entry signatures...")
+    for entry in client._state_chain:
+        sig_valid = entry.verify_signature(client.keypair.public_key_bytes())
+        print(f"   Entry {entry.sequence}: signature valid = {sig_valid}")
+    
+    # Save keypair
+    print("\n6. Saving agent identity to encrypted file...")
+    # In a real app, use a secure password
+    # client.save_to_file(Path("agent.key"), "password123")
+    print("   (Skipped in demo - use client.save_to_file() in real code)")
+    
     print("\n" + "=" * 60)
-    print("Demo completed successfully!")
+    print("Demo complete!")
     print("=" * 60)
+    
+    # Cleanup
+    await client.close()
 
 
 if __name__ == "__main__":

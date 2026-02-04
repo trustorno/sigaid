@@ -1,248 +1,186 @@
-"""HTTP client for Authority API."""
+"""HTTP transport for API calls."""
 
 from __future__ import annotations
 
-import logging
-from typing import Any
+import json
+from typing import Any, TypeVar
 
 import httpx
 
-from sigaid.exceptions import (
-    NetworkError,
-    AuthorityUnavailable,
-    RateLimitExceeded,
-    RequestTimeout,
-    ServerError,
-    ClientError,
-)
-from sigaid.client.retry import with_retry, RetryConfig
+from sigaid.exceptions import AuthorityError, NetworkError, RateLimitExceeded
 
-logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
-class HttpClient:
-    """Async HTTP client for Authority API communication.
-
-    Example:
-        client = HttpClient("https://api.sigaid.com")
-
-        response = await client.get("/v1/agents/aid_xxx")
-        print(response)
-
-        await client.close()
+class HTTPClient:
     """
-
+    Async HTTP client for Authority API calls.
+    
+    Handles:
+    - Request signing
+    - Error handling
+    - Rate limit responses
+    - Retries
+    """
+    
     def __init__(
         self,
         base_url: str,
-        timeout: float = 30.0,
         api_key: str | None = None,
+        *,
+        timeout: float = 30.0,
+        max_retries: int = 3,
     ):
-        """Initialize HTTP client.
-
+        """
+        Initialize HTTP client.
+        
         Args:
-            base_url: Base URL for API
+            base_url: Authority service base URL
+            api_key: API key for authentication
             timeout: Request timeout in seconds
-            api_key: Optional API key for authentication
+            max_retries: Maximum retry attempts
         """
         self._base_url = base_url.rstrip("/")
-        self._timeout = timeout
         self._api_key = api_key
+        self._timeout = timeout
+        self._max_retries = max_retries
+        
         self._client: httpx.AsyncClient | None = None
-
+    
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
-        if self._client is None or self._client.is_closed:
-            headers = {}
+        if self._client is None:
+            headers = {"Content-Type": "application/json"}
             if self._api_key:
                 headers["Authorization"] = f"Bearer {self._api_key}"
-
+            
             self._client = httpx.AsyncClient(
                 base_url=self._base_url,
-                timeout=self._timeout,
                 headers=headers,
+                timeout=self._timeout,
             )
         return self._client
-
-    async def close(self) -> None:
-        """Close the HTTP client."""
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
-            self._client = None
-
+    
     async def get(
         self,
         path: str,
         params: dict[str, Any] | None = None,
-        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        """Make GET request.
-
-        Args:
-            path: API path
-            params: Query parameters
-            headers: Additional headers
-
-        Returns:
-            JSON response
-
-        Raises:
-            NetworkError: On request failure
         """
-        return await self._request("GET", path, params=params, headers=headers)
-
+        Make GET request.
+        
+        Args:
+            path: API path (e.g., "/v1/agents/aid_xxx")
+            params: Query parameters
+            
+        Returns:
+            Response JSON as dict
+        """
+        client = await self._get_client()
+        
+        for attempt in range(self._max_retries):
+            try:
+                response = await client.get(path, params=params)
+                return self._handle_response(response)
+            except httpx.TimeoutException:
+                if attempt == self._max_retries - 1:
+                    raise NetworkError(f"Request timeout after {self._max_retries} attempts")
+            except httpx.RequestError as e:
+                if attempt == self._max_retries - 1:
+                    raise NetworkError(f"Request failed: {e}") from e
+    
     async def post(
         self,
         path: str,
-        json: dict[str, Any] | None = None,
-        headers: dict[str, str] | None = None,
+        data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make POST request.
-
+        """
+        Make POST request.
+        
         Args:
             path: API path
-            json: JSON body
-            headers: Additional headers
-
+            data: Request body
+            
         Returns:
-            JSON response
-
-        Raises:
-            NetworkError: On request failure
+            Response JSON as dict
         """
-        return await self._request("POST", path, json=json, headers=headers)
-
+        client = await self._get_client()
+        
+        for attempt in range(self._max_retries):
+            try:
+                response = await client.post(path, json=data)
+                return self._handle_response(response)
+            except httpx.TimeoutException:
+                if attempt == self._max_retries - 1:
+                    raise NetworkError(f"Request timeout after {self._max_retries} attempts")
+            except httpx.RequestError as e:
+                if attempt == self._max_retries - 1:
+                    raise NetworkError(f"Request failed: {e}") from e
+    
     async def put(
         self,
         path: str,
-        json: dict[str, Any] | None = None,
-        headers: dict[str, str] | None = None,
+        data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make PUT request.
-
-        Args:
-            path: API path
-            json: JSON body
-            headers: Additional headers
-
-        Returns:
-            JSON response
-
-        Raises:
-            NetworkError: On request failure
-        """
-        return await self._request("PUT", path, json=json, headers=headers)
-
+        """Make PUT request."""
+        client = await self._get_client()
+        
+        for attempt in range(self._max_retries):
+            try:
+                response = await client.put(path, json=data)
+                return self._handle_response(response)
+            except httpx.TimeoutException:
+                if attempt == self._max_retries - 1:
+                    raise NetworkError(f"Request timeout after {self._max_retries} attempts")
+            except httpx.RequestError as e:
+                if attempt == self._max_retries - 1:
+                    raise NetworkError(f"Request failed: {e}") from e
+    
     async def delete(
         self,
         path: str,
-        json: dict[str, Any] | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
-        """Make DELETE request.
-
-        Args:
-            path: API path
-            json: JSON body
-            headers: Additional headers
-
-        Returns:
-            JSON response
-
-        Raises:
-            NetworkError: On request failure
-        """
-        return await self._request("DELETE", path, json=json, headers=headers)
-
-    async def _request(
-        self,
-        method: str,
-        path: str,
         params: dict[str, Any] | None = None,
-        json: dict[str, Any] | None = None,
-        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        """Make HTTP request.
-
-        Args:
-            method: HTTP method
-            path: API path
-            params: Query parameters
-            json: JSON body
-            headers: Additional headers
-
-        Returns:
-            JSON response
-
-        Raises:
-            NetworkError: On request failure
-            AuthorityUnavailable: If server is unreachable
-            RateLimitExceeded: If rate limit is hit
-            ServerError: If server returns 5xx
-        """
+        """Make DELETE request."""
         client = await self._get_client()
-
+        
+        for attempt in range(self._max_retries):
+            try:
+                response = await client.delete(path, params=params)
+                return self._handle_response(response)
+            except httpx.TimeoutException:
+                if attempt == self._max_retries - 1:
+                    raise NetworkError(f"Request timeout after {self._max_retries} attempts")
+            except httpx.RequestError as e:
+                if attempt == self._max_retries - 1:
+                    raise NetworkError(f"Request failed: {e}") from e
+    
+    def _handle_response(self, response: httpx.Response) -> dict[str, Any]:
+        """Handle API response."""
+        # Rate limit
+        if response.status_code == 429:
+            retry_after = response.headers.get("Retry-After", "60")
+            raise RateLimitExceeded(f"Rate limit exceeded. Retry after {retry_after}s")
+        
+        # Success
+        if 200 <= response.status_code < 300:
+            if response.content:
+                return response.json()
+            return {}
+        
+        # Error
         try:
-            response = await client.request(
-                method=method,
-                url=path,
-                params=params,
-                json=json,
-                headers=headers,
-            )
-
-            # Log rate limit headers if present
-            limit = response.headers.get("X-RateLimit-Limit")
-            remaining = response.headers.get("X-RateLimit-Remaining")
-            if limit and remaining:
-                logger.debug(f"Rate limit: {remaining}/{limit} remaining")
-
-            # Handle rate limiting
-            if response.status_code == 429:
-                retry_after = int(response.headers.get("Retry-After", 60))
-                raise RateLimitExceeded(retry_after=retry_after)
-
-            # Handle server errors (retryable)
-            if response.status_code >= 500:
-                try:
-                    error_data = response.json()
-                    message = error_data.get("detail", str(error_data))
-                except Exception:
-                    message = response.text
-                raise ServerError(response.status_code, message)
-
-            # Handle client errors
-            if response.status_code >= 400:
-                try:
-                    error_data = response.json()
-                    message = error_data.get("detail", str(error_data))
-                    if isinstance(message, dict):
-                        message = message.get("message", str(message))
-                except Exception:
-                    error_data = {"error": response.text}
-                    message = response.text
-                raise ClientError(response.status_code, message, response_data=error_data)
-
-            # Return JSON response
-            if response.status_code == 204:
-                return {}
-
-            return response.json()
-
-        except httpx.ConnectError as e:
-            logger.warning(f"Connection error to {self._base_url}: {e}")
-            raise AuthorityUnavailable(f"Cannot connect to Authority: {e}") from e
-        except httpx.TimeoutException as e:
-            logger.warning(f"Request timeout to {self._base_url}: {e}")
-            raise RequestTimeout(f"Request timed out: {e}") from e
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error: {e}")
-            raise NetworkError(f"HTTP error: {e}") from e
-
-    async def __aenter__(self) -> HttpClient:
-        """Async context manager entry."""
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Async context manager exit."""
-        await self.close()
+            error_data = response.json()
+            error_message = error_data.get("error", {}).get("message", response.text)
+        except Exception:
+            error_message = response.text
+        
+        raise AuthorityError(
+            f"API error {response.status_code}: {error_message}"
+        )
+    
+    async def close(self) -> None:
+        """Close the HTTP client."""
+        if self._client:
+            await self._client.aclose()
+            self._client = None

@@ -1,4 +1,4 @@
-"""Lease manager for acquiring and managing exclusive leases."""
+"""Lease acquisition and management."""
 
 from __future__ import annotations
 
@@ -6,310 +6,278 @@ import asyncio
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, AsyncIterator, Any
+from typing import TYPE_CHECKING, AsyncIterator
 
-from sigaid.models.lease import Lease, LeaseStatus
 from sigaid.constants import (
-    DEFAULT_LEASE_TTL_SECONDS,
     DEFAULT_LEASE_RENEWAL_BUFFER_SECONDS,
+    DEFAULT_LEASE_TTL_SECONDS,
     DOMAIN_LEASE,
+    SESSION_ID_PREFIX,
 )
 from sigaid.exceptions import (
-    LeaseHeldByAnotherInstance,
+    LeaseError,
     LeaseExpired,
+    LeaseHeldByAnotherInstance,
     LeaseNotHeld,
     LeaseRenewalFailed,
-    ClientError,
 )
+from sigaid.models.lease import Lease, LeaseRequest
 
 if TYPE_CHECKING:
     from sigaid.crypto.keys import KeyPair
-    from sigaid.client.http import HttpClient
+    from sigaid.client.authority import AuthorityClient
+
+
+def generate_session_id() -> str:
+    """Generate unique session identifier."""
+    return SESSION_ID_PREFIX + secrets.token_hex(16)
 
 
 class LeaseManager:
-    """Manages lease acquisition, renewal, and release.
-
-    The LeaseManager ensures only one instance of an agent can operate
-    at a time by acquiring an exclusive lease from the Authority.
-
-    Example:
-        manager = LeaseManager(keypair, http_client)
-
-        async with manager.acquire() as lease:
-            # Exclusive access granted
-            print(f"Lease acquired: {lease.session_id}")
-            # Do work...
-
-        # Lease automatically released
     """
-
+    Manages exclusive lease acquisition for an agent.
+    
+    The lease ensures only one instance of an agent can operate at a time,
+    preventing "clone" attacks where multiple instances use the same identity.
+    
+    Example:
+        manager = LeaseManager(agent_id, keypair, authority_client)
+        
+        async with manager.acquire() as lease:
+            # Only one instance can be here at a time
+            print(f"Holding lease until {lease.expires_at}")
+    """
+    
     def __init__(
         self,
+        agent_id: str,
         keypair: KeyPair,
-        http_client: HttpClient | None = None,
+        authority: AuthorityClient,
+        *,
         ttl_seconds: int = DEFAULT_LEASE_TTL_SECONDS,
         renewal_buffer_seconds: int = DEFAULT_LEASE_RENEWAL_BUFFER_SECONDS,
-        auto_renew: bool = True,
     ):
-        """Initialize lease manager.
-
-        Args:
-            keypair: Agent's keypair for signing lease requests
-            http_client: HTTP client for Authority API (optional for local-only mode)
-            ttl_seconds: Lease time-to-live in seconds
-            renewal_buffer_seconds: Seconds before expiry to start renewal
-            auto_renew: Whether to automatically renew leases
         """
+        Initialize lease manager.
+        
+        Args:
+            agent_id: Agent identifier
+            keypair: Agent's keypair for signing
+            authority: Authority client for API calls
+            ttl_seconds: Lease time-to-live
+            renewal_buffer_seconds: Renew when this many seconds remain
+        """
+        self._agent_id = agent_id
         self._keypair = keypair
-        self._http_client = http_client
+        self._authority = authority
         self._ttl_seconds = ttl_seconds
-        self._renewal_buffer_seconds = renewal_buffer_seconds
-        self._auto_renew = auto_renew
+        self._renewal_buffer = renewal_buffer_seconds
+        
         self._current_lease: Lease | None = None
-        self._renewal_task: asyncio.Task | None = None
         self._session_id: str | None = None
-
+        self._renewal_task: asyncio.Task | None = None
+        self._lock = asyncio.Lock()
+    
     @property
     def agent_id(self) -> str:
         """Get agent ID."""
-        return str(self._keypair.to_agent_id())
-
+        return self._agent_id
+    
     @property
     def current_lease(self) -> Lease | None:
-        """Get current lease if held."""
+        """Get current lease (if held)."""
         return self._current_lease
-
+    
     @property
-    def has_lease(self) -> bool:
-        """Check if a valid lease is held."""
-        return self._current_lease is not None and self._current_lease.is_active
-
-    @asynccontextmanager
-    async def acquire(self) -> AsyncIterator[Lease]:
-        """Acquire exclusive lease as async context manager.
-
-        Yields:
-            Active Lease object
-
+    def is_holding_lease(self) -> bool:
+        """Check if currently holding a valid lease."""
+        return (
+            self._current_lease is not None and
+            self._current_lease.is_valid
+        )
+    
+    async def acquire(self, timeout: float | None = None) -> Lease:
+        """
+        Acquire exclusive lease.
+        
+        Args:
+            timeout: Optional timeout in seconds
+            
+        Returns:
+            Acquired Lease
+            
         Raises:
             LeaseHeldByAnotherInstance: If another instance holds the lease
+            LeaseError: If acquisition fails
         """
-        lease = await self.acquire_lease()
+        async with self._lock:
+            if self.is_holding_lease:
+                return self._current_lease
+            
+            # Generate new session ID
+            self._session_id = generate_session_id()
+            
+            # Create signed lease request
+            timestamp = datetime.now(timezone.utc)
+            nonce = secrets.token_bytes(32)
+            
+            request_data = (
+                self._agent_id.encode("utf-8") +
+                timestamp.isoformat().encode("utf-8") +
+                nonce
+            )
+            signature = self._keypair.sign_with_domain(request_data, DOMAIN_LEASE)
+            
+            request = LeaseRequest(
+                agent_id=self._agent_id,
+                timestamp=timestamp,
+                nonce=nonce,
+                signature=signature,
+            )
+            
+            # Call authority to acquire lease
+            try:
+                response = await self._authority.acquire_lease(
+                    request,
+                    self._session_id,
+                    self._ttl_seconds,
+                    timeout=timeout,
+                )
+            except Exception as e:
+                if "held by another" in str(e).lower():
+                    raise LeaseHeldByAnotherInstance(self._agent_id) from e
+                raise LeaseError(f"Failed to acquire lease: {e}") from e
+            
+            self._current_lease = response.lease
+            return self._current_lease
+    
+    async def release(self) -> None:
+        """
+        Release the current lease.
+        
+        This allows other instances to acquire the lease immediately
+        rather than waiting for expiration.
+        """
+        async with self._lock:
+            if self._current_lease is None:
+                return
+            
+            # Stop renewal task if running
+            if self._renewal_task and not self._renewal_task.done():
+                self._renewal_task.cancel()
+                try:
+                    await self._renewal_task
+                except asyncio.CancelledError:
+                    pass
+            
+            # Notify authority
+            try:
+                await self._authority.release_lease(
+                    self._agent_id,
+                    self._session_id,
+                )
+            except Exception:
+                pass  # Best effort - lease will expire anyway
+            
+            self._current_lease = None
+            self._session_id = None
+            self._renewal_task = None
+    
+    async def renew(self) -> Lease:
+        """
+        Renew the current lease.
+        
+        Returns:
+            Renewed Lease with extended expiration
+            
+        Raises:
+            LeaseNotHeld: If no lease is held
+            LeaseRenewalFailed: If renewal fails
+        """
+        async with self._lock:
+            if not self.is_holding_lease:
+                raise LeaseNotHeld("Cannot renew - no lease held")
+            
+            try:
+                response = await self._authority.renew_lease(
+                    self._agent_id,
+                    self._session_id,
+                    self._current_lease.token,
+                    self._ttl_seconds,
+                )
+            except Exception as e:
+                raise LeaseRenewalFailed(f"Failed to renew lease: {e}") from e
+            
+            self._current_lease = response.lease
+            return self._current_lease
+    
+    def start_auto_renewal(self) -> None:
+        """
+        Start background task for automatic lease renewal.
+        
+        The task will renew the lease when it's close to expiration.
+        """
+        if self._renewal_task and not self._renewal_task.done():
+            return  # Already running
+        
+        self._renewal_task = asyncio.create_task(self._auto_renewal_loop())
+    
+    def stop_auto_renewal(self) -> None:
+        """Stop the auto-renewal background task."""
+        if self._renewal_task and not self._renewal_task.done():
+            self._renewal_task.cancel()
+    
+    async def _auto_renewal_loop(self) -> None:
+        """Background loop for automatic lease renewal."""
+        while True:
+            try:
+                if not self.is_holding_lease:
+                    break
+                
+                # Check if renewal needed
+                if self._current_lease.should_renew(self._renewal_buffer):
+                    await self.renew()
+                
+                # Sleep until next check (half the renewal buffer)
+                await asyncio.sleep(self._renewal_buffer / 2)
+            
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                # Log error but continue trying
+                await asyncio.sleep(5)
+    
+    @asynccontextmanager
+    async def hold(self) -> AsyncIterator[Lease]:
+        """
+        Context manager for holding a lease.
+        
+        Acquires the lease on entry, releases on exit.
+        Auto-renewal is enabled while in context.
+        
+        Example:
+            async with manager.hold() as lease:
+                # Do work while holding lease
+                pass
+        """
+        lease = await self.acquire()
+        self.start_auto_renewal()
         try:
             yield lease
         finally:
-            await self.release_lease()
-
-    async def acquire_lease(self) -> Lease:
-        """Acquire an exclusive lease.
-
+            self.stop_auto_renewal()
+            await self.release()
+    
+    def require_lease(self) -> Lease:
+        """
+        Get current lease, raising if not held.
+        
         Returns:
-            Acquired Lease object
-
+            Current valid Lease
+            
         Raises:
-            LeaseHeldByAnotherInstance: If another instance holds the lease
+            LeaseNotHeld: If no valid lease is held
         """
-        self._session_id = secrets.token_hex(16)
-
-        if self._http_client:
-            lease = await self._acquire_remote()
-        else:
-            lease = self._acquire_local()
-
-        self._current_lease = lease
-
-        # Start auto-renewal if enabled
-        if self._auto_renew:
-            self._start_renewal_task()
-
-        return lease
-
-    async def _acquire_remote(self) -> Lease:
-        """Acquire lease from Authority service."""
-        timestamp = datetime.now(timezone.utc)
-        nonce = secrets.token_bytes(32)
-
-        # Create signed lease request
-        request_data = {
-            "agent_id": self.agent_id,
-            "session_id": self._session_id,
-            "timestamp": timestamp.isoformat(),
-            "nonce": nonce.hex(),
-            "ttl_seconds": self._ttl_seconds,
-        }
-
-        # Sign the request
-        signable = f"{self.agent_id}:{self._session_id}:{timestamp.isoformat()}:{nonce.hex()}".encode()
-        signature = self._keypair.sign(signable, domain=DOMAIN_LEASE)
-
-        request_data["signature"] = signature.hex()
-
-        # Send to Authority
-        try:
-            response = await self._http_client.post("/v1/leases", json=request_data)
-        except ClientError as e:
-            # Check for lease held error
-            error_data = e.response_data
-            error = error_data.get("error") or error_data.get("detail", {}).get("error")
-            if error == "lease_held":
-                detail = error_data.get("detail", {})
-                holder = detail.get("holder_session_id") if isinstance(detail, dict) else error_data.get("holder_session_id")
-                raise LeaseHeldByAnotherInstance(self.agent_id, holder) from e
-            raise RuntimeError(f"Lease acquisition failed: {e}") from e
-
-        return Lease(
-            agent_id=self.agent_id,
-            session_id=self._session_id,
-            token=response["lease_token"],
-            acquired_at=datetime.fromisoformat(response["acquired_at"]),
-            expires_at=datetime.fromisoformat(response["expires_at"]),
-            renewal_buffer_seconds=self._renewal_buffer_seconds,
-        )
-
-    def _acquire_local(self) -> Lease:
-        """Create a local-only lease (for testing/offline mode)."""
-        now = datetime.now(timezone.utc)
-        return Lease(
-            agent_id=self.agent_id,
-            session_id=self._session_id,
-            token=f"local:{self._session_id}",
-            acquired_at=now,
-            expires_at=now + timedelta(seconds=self._ttl_seconds),
-            renewal_buffer_seconds=self._renewal_buffer_seconds,
-        )
-
-    async def renew_lease(self) -> Lease:
-        """Renew the current lease.
-
-        Returns:
-            Renewed Lease object
-
-        Raises:
-            LeaseNotHeld: If no lease is currently held
-            LeaseRenewalFailed: If renewal fails
-        """
-        if not self._current_lease:
-            raise LeaseNotHeld("No lease to renew")
-
-        if self._http_client:
-            lease = await self._renew_remote()
-        else:
-            lease = self._renew_local()
-
-        self._current_lease = lease
-        return lease
-
-    async def _renew_remote(self) -> Lease:
-        """Renew lease with Authority service."""
-        try:
-            response = await self._http_client.put(
-                f"/v1/leases/{self.agent_id}",
-                json={
-                    "session_id": self._session_id,
-                    "current_token": self._current_lease.token,
-                    "ttl_seconds": self._ttl_seconds,
-                },
-            )
-        except ClientError as e:
-            raise LeaseRenewalFailed(str(e)) from e
-
-        self._current_lease.renew(
-            new_token=response["lease_token"],
-            new_expires_at=datetime.fromisoformat(response["expires_at"]),
-        )
+        if not self.is_holding_lease:
+            raise LeaseNotHeld("Operation requires holding a lease")
         return self._current_lease
-
-    def _renew_local(self) -> Lease:
-        """Renew local lease."""
-        now = datetime.now(timezone.utc)
-        self._current_lease.renew(
-            new_token=f"local:{self._session_id}:{self._current_lease.sequence + 1}",
-            new_expires_at=now + timedelta(seconds=self._ttl_seconds),
-        )
-        return self._current_lease
-
-    async def release_lease(self) -> None:
-        """Release the current lease."""
-        # Stop renewal task
-        self._stop_renewal_task()
-
-        if not self._current_lease:
-            return
-
-        if self._http_client:
-            await self._release_remote()
-
-        self._current_lease.release()
-        self._current_lease = None
-        self._session_id = None
-
-    async def _release_remote(self) -> None:
-        """Release lease with Authority service."""
-        try:
-            await self._http_client.delete(
-                f"/v1/leases/{self.agent_id}",
-                json={
-                    "session_id": self._session_id,
-                    "token": self._current_lease.token,
-                },
-            )
-        except Exception:
-            # Best effort release
-            pass
-
-    def _start_renewal_task(self) -> None:
-        """Start background renewal task."""
-        if self._renewal_task and not self._renewal_task.done():
-            return
-
-        self._renewal_task = asyncio.create_task(self._renewal_loop())
-
-    def _stop_renewal_task(self) -> None:
-        """Stop background renewal task."""
-        if self._renewal_task and not self._renewal_task.done():
-            self._renewal_task.cancel()
-            self._renewal_task = None
-
-    async def _renewal_loop(self) -> None:
-        """Background loop to renew lease before expiry."""
-        while True:
-            try:
-                # Check lease status at start of loop
-                lease = self._current_lease
-                if not lease or not lease.is_active:
-                    break
-
-                # Wait until we should renew
-                wait_seconds = max(
-                    0,
-                    lease.ttl_seconds - self._renewal_buffer_seconds,
-                )
-                await asyncio.sleep(wait_seconds)
-
-                # Re-check if still active after sleep
-                if not self._current_lease or not self._current_lease.is_active:
-                    break
-
-                # Renew
-                await self.renew_lease()
-
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                # Log error but continue trying
-                import logging
-                logging.getLogger(__name__).warning(f"Lease renewal failed: {e}")
-                await asyncio.sleep(5)
-
-    def check_lease(self) -> None:
-        """Check that we hold a valid lease.
-
-        Raises:
-            LeaseNotHeld: If no lease is held
-            LeaseExpired: If lease has expired
-        """
-        if not self._current_lease:
-            raise LeaseNotHeld("No lease held")
-        if self._current_lease.is_expired:
-            raise LeaseExpired("Lease has expired")

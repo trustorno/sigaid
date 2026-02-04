@@ -1,0 +1,44 @@
+{
+  "name": "@sigaid/widget",
+  "version": "0.1.0",
+  "description": "SigAid Face Widget - Embeddable agent identity verification",
+  "main": "dist/widget.js",
+  "module": "dist/widget.esm.js",
+  "types": "dist/widget.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c -w",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "sigaid",
+    "agent",
+    "identity",
+    "verification",
+    "widget",
+    "web-component"
+  ],
+  "author": "SigAid",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sigaid/sigaid.git",
+    "directory": "sdk/js"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.0",
+    "rollup": "^4.0.0",
+    "rollup-plugin-terser": "^7.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {},
+  "sideEffects": [
+    "*.css",
+    "./dist/widget.js"
+  ]
+}

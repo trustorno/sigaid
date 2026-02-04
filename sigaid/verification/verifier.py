@@ -1,282 +1,364 @@
-"""Proof verification for services."""
+"""Verification service for proof bundles."""
 
 from __future__ import annotations
 
-import secrets
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
-from sigaid.models.proof import ProofBundle
-from sigaid.models.agent import AgentInfo, VerificationResult
-from sigaid.identity.agent_id import AgentID
-from sigaid.state.verification import ChainVerifier
-from sigaid.exceptions import ProofInvalid, VerificationError
+from sigaid.constants import DEFAULT_AUTHORITY_URL, DOMAIN_VERIFY
+from sigaid.crypto.signing import verify_with_domain
+from sigaid.exceptions import (
+    AgentNotFound,
+    AgentRevoked,
+    ProofInvalid,
+    VerificationError,
+)
+from sigaid.models.proof import ProofBundle, VerificationResult
+from sigaid.state.verification import StateVerifier
 
 if TYPE_CHECKING:
-    from sigaid.client.http import HttpClient
+    from sigaid.client.authority import AuthorityClient
 
 
 class Verifier:
-    """Verifies agent proof bundles.
-
-    The Verifier is used by services that need to verify agent identity
-    before allowing them to perform actions.
-
+    """
+    Verification service for proof bundles.
+    
+    Used by services to verify agent identity, lease status, and state integrity.
+    
     Example:
         verifier = Verifier(api_key="...")
-
-        # Generate challenge
-        challenge = verifier.create_challenge()
-
-        # Agent responds with proof
-        proof = await agent.create_proof(challenge)
-
-        # Verify the proof
-        result = await verifier.verify(proof, challenge)
+        
+        # Verify proof from agent
+        result = await verifier.verify(proof_bundle)
+        
         if result.valid:
-            print(f"Agent {result.agent_id} verified!")
-            print(f"Reputation: {result.agent_info.reputation_score}")
+            print(f"Agent {result.agent_id} verified")
+            print(f"Lease expires: {result.lease_expires_at}")
+            print(f"Reputation: {result.reputation_score}")
+        else:
+            print(f"Verification failed: {result.error_message}")
     """
-
+    
     def __init__(
         self,
         api_key: str | None = None,
-        authority_url: str = "https://api.sigaid.com",
-        http_client: HttpClient | None = None,
-        cache_ttl_seconds: int = 300,
+        authority_url: str = DEFAULT_AUTHORITY_URL,
+        *,
+        cache_ttl: int = 300,
+        offline_mode: bool = False,
     ):
-        """Initialize verifier.
-
+        """
+        Initialize verifier.
+        
         Args:
-            api_key: API key for Authority service
-            authority_url: URL of Authority service
-            http_client: Optional pre-configured HTTP client
-            cache_ttl_seconds: TTL for verification cache
+            api_key: SigAid API key for Authority calls
+            authority_url: Authority service URL
+            cache_ttl: Cache TTL for verification results
+            offline_mode: If True, only do offline verification
         """
         self._api_key = api_key
         self._authority_url = authority_url
-        self._http_client = http_client
-        self._cache_ttl = cache_ttl_seconds
-        self._chain_verifier = ChainVerifier()
-        self._verification_cache: dict[str, tuple[VerificationResult, datetime]] = {}
-
-    def create_challenge(self, length: int = 32) -> bytes:
-        """Create a random challenge for agents to sign.
-
-        Args:
-            length: Challenge length in bytes
-
-        Returns:
-            Random challenge bytes
-        """
-        return secrets.token_bytes(length)
-
+        self._cache_ttl = cache_ttl
+        self._offline_mode = offline_mode
+        
+        self._authority: AuthorityClient | None = None
+        self._state_verifier = StateVerifier()
+        
+        # Simple TTL cache: agent_id -> (result, expiry)
+        self._cache: dict[str, tuple[VerificationResult, datetime]] = {}
+    
+    async def _get_authority(self) -> AuthorityClient:
+        """Get or create Authority client."""
+        if self._authority is None:
+            from sigaid.client.authority import AuthorityClient
+            self._authority = AuthorityClient(
+                base_url=self._authority_url,
+                api_key=self._api_key,
+            )
+        return self._authority
+    
     async def verify(
         self,
         proof: ProofBundle,
-        challenge: bytes,
         *,
         require_lease: bool = True,
         min_reputation_score: float | None = None,
         max_state_age: timedelta | None = None,
+        use_cache: bool = True,
     ) -> VerificationResult:
-        """Verify an agent proof bundle.
-
+        """
+        Verify agent proof bundle.
+        
+        Performs:
+        1. Signature verification (offline)
+        2. Lease verification (via Authority)
+        3. State chain verification
+        4. Optional reputation check
+        
         Args:
-            proof: Proof bundle from agent
-            challenge: Original challenge bytes
-            require_lease: Whether to require an active lease
-            min_reputation_score: Minimum required reputation score
+            proof: ProofBundle from agent
+            require_lease: Require active lease (default True)
+            min_reputation_score: Minimum required reputation (0.0-1.0)
             max_state_age: Maximum age of state head
-
+            use_cache: Use cached results (default True)
+            
         Returns:
             VerificationResult with details
-
-        Raises:
-            VerificationError: If verification fails critically
         """
-        result = VerificationResult(
-            valid=False,
-            agent_id=proof.agent_id,
-        )
-
+        # Check cache
+        if use_cache:
+            cached = self._get_cached(proof.agent_id)
+            if cached is not None:
+                return cached
+        
         try:
-            # Validate agent ID format
-            agent_id = AgentID(proof.agent_id)
-            public_key = agent_id.to_public_key_bytes()
-
-            # Verify challenge response
-            result.challenge_valid = proof.verify_challenge_response(public_key, challenge)
-            if not result.challenge_valid:
-                result.error_message = "Challenge response invalid"
-                return result
-
-            # Verify bundle signature
-            result.signature_valid = proof.verify_signature(public_key)
-            if not result.signature_valid:
-                result.error_message = "Bundle signature invalid"
-                return result
-
-            # Verify state chain if present
+            # Step 1: Offline signature verification
+            if not await self._verify_signatures(proof):
+                return self._cache_and_return(VerificationResult.failure(
+                    proof.agent_id,
+                    "invalid_signature",
+                    "Proof bundle signature verification failed",
+                ))
+            
+            # Step 2: Online verification via Authority
+            if not self._offline_mode:
+                result = await self._verify_online(proof, require_lease)
+                if not result.valid:
+                    return self._cache_and_return(result)
+            else:
+                result = VerificationResult(
+                    valid=True,
+                    agent_id=proof.agent_id,
+                    signature_valid=True,
+                )
+            
+            # Step 3: State verification
             if proof.state_head:
                 try:
-                    self._chain_verifier.verify_head(proof.agent_id, proof.state_head)
-                    result.chain_valid = True
-                    result.state_verified = True
+                    # Get agent's public key
+                    authority = await self._get_authority()
+                    agent_info = await authority.get_agent(proof.agent_id)
+                    
+                    self._state_verifier.verify_head(
+                        proof.agent_id,
+                        proof.state_head,
+                        agent_info.public_key,
+                        max_age=max_state_age,
+                    )
+                    
+                    result = VerificationResult(
+                        valid=True,
+                        agent_id=proof.agent_id,
+                        lease_valid=result.lease_valid,
+                        lease_expires_at=result.lease_expires_at,
+                        signature_valid=True,
+                        state_head_sequence=proof.state_head.sequence,
+                        state_head_hash=proof.state_head.entry_hash,
+                        reputation_score=result.reputation_score,
+                    )
                 except Exception as e:
-                    result.error_message = f"State chain error: {e}"
-                    return result
-            else:
-                result.chain_valid = True  # No chain to verify
-
-            # Check state age if required
-            if max_state_age and proof.state_head:
-                state_age = datetime.now(timezone.utc) - proof.state_head.timestamp
-                if state_age > max_state_age:
-                    result.error_message = f"State too old: {state_age}"
-                    return result
-
-            # Verify with Authority if available
-            if self._http_client and self._api_key:
-                authority_result = await self._verify_with_authority(
-                    proof, require_lease, min_reputation_score
-                )
-                result.lease_active = authority_result.get("lease_active", False)
-                result.agent_info = authority_result.get("agent_info")
-
-                if require_lease and not result.lease_active:
-                    result.error_message = "Lease not active"
-                    return result
-
-                if min_reputation_score and result.agent_info:
-                    if result.agent_info.reputation_score < min_reputation_score:
-                        result.error_message = (
-                            f"Reputation {result.agent_info.reputation_score} "
-                            f"below minimum {min_reputation_score}"
-                        )
-                        return result
-            else:
-                # Offline mode - can't verify lease
-                if require_lease:
-                    result.lease_active = bool(proof.lease_token)
-                else:
-                    result.lease_active = True
-
-            result.valid = True
-            return result
-
+                    return self._cache_and_return(VerificationResult.failure(
+                        proof.agent_id,
+                        "state_verification_failed",
+                        f"State verification failed: {e}",
+                    ))
+            
+            # Step 4: Reputation check
+            if min_reputation_score is not None:
+                if result.reputation_score is None or result.reputation_score < min_reputation_score:
+                    return self._cache_and_return(VerificationResult.failure(
+                        proof.agent_id,
+                        "insufficient_reputation",
+                        f"Reputation {result.reputation_score} < {min_reputation_score}",
+                    ))
+            
+            return self._cache_and_return(result)
+        
         except Exception as e:
-            result.error_message = str(e)
-            return result
-
-    async def _verify_with_authority(
+            return self._cache_and_return(VerificationResult.failure(
+                proof.agent_id,
+                "verification_error",
+                f"Verification error: {e}",
+            ))
+    
+    async def verify_offline(
+        self,
+        proof: ProofBundle,
+        public_key: bytes,
+        *,
+        known_state_head: tuple[int, bytes] | None = None,
+    ) -> VerificationResult:
+        """
+        Verify proof bundle offline (no Authority calls).
+        
+        Only verifies signatures and state chain integrity.
+        Does NOT verify lease is currently active.
+        
+        Args:
+            proof: ProofBundle from agent
+            public_key: Agent's known public key
+            known_state_head: Known (sequence, hash) for fork detection
+            
+        Returns:
+            VerificationResult
+        """
+        # Verify challenge response
+        challenge_valid = verify_with_domain(
+            public_key,
+            proof.challenge_response,
+            proof.challenge,
+            DOMAIN_VERIFY,
+        )
+        
+        if not challenge_valid:
+            return VerificationResult.failure(
+                proof.agent_id,
+                "invalid_challenge_response",
+                "Challenge response signature invalid",
+            )
+        
+        # Verify bundle signature
+        bundle_valid = verify_with_domain(
+            public_key,
+            proof.signature,
+            proof.signable_bytes(),
+            DOMAIN_VERIFY,
+        )
+        
+        if not bundle_valid:
+            return VerificationResult.failure(
+                proof.agent_id,
+                "invalid_bundle_signature",
+                "Bundle signature invalid",
+            )
+        
+        # Verify state head if provided
+        if proof.state_head:
+            if not proof.state_head.verify_signature(public_key):
+                return VerificationResult.failure(
+                    proof.agent_id,
+                    "invalid_state_signature",
+                    "State head signature invalid",
+                )
+            
+            # Check against known head
+            if known_state_head:
+                known_seq, known_hash = known_state_head
+                if proof.state_head.sequence == known_seq:
+                    if proof.state_head.entry_hash != known_hash:
+                        return VerificationResult.failure(
+                            proof.agent_id,
+                            "fork_detected",
+                            f"State fork at sequence {known_seq}",
+                        )
+        
+        return VerificationResult.success(
+            agent_id=proof.agent_id,
+            lease_expires_at=datetime.now(timezone.utc),  # Unknown without Authority
+            state_head_sequence=proof.state_head.sequence if proof.state_head else None,
+            state_head_hash=proof.state_head.entry_hash if proof.state_head else None,
+        )
+    
+    async def _verify_signatures(self, proof: ProofBundle) -> bool:
+        """Verify proof bundle signatures."""
+        # We need the agent's public key from Authority
+        try:
+            authority = await self._get_authority()
+            agent_info = await authority.get_agent(proof.agent_id)
+            public_key = agent_info.public_key
+        except Exception:
+            # Can't get public key - fail
+            return False
+        
+        # Verify challenge response
+        if not verify_with_domain(
+            public_key,
+            proof.challenge_response,
+            proof.challenge,
+            DOMAIN_VERIFY,
+        ):
+            return False
+        
+        # Verify bundle signature
+        if not verify_with_domain(
+            public_key,
+            proof.signature,
+            proof.signable_bytes(),
+            DOMAIN_VERIFY,
+        ):
+            return False
+        
+        return True
+    
+    async def _verify_online(
         self,
         proof: ProofBundle,
         require_lease: bool,
-        min_reputation_score: float | None,
-    ) -> dict[str, Any]:
-        """Verify proof with Authority service."""
-        response = await self._http_client.post(
-            "/v1/verify",
-            json={
-                "proof": proof.to_dict(),
-                "require_lease": require_lease,
-                "min_reputation_score": min_reputation_score,
-            },
-            headers={"Authorization": f"Bearer {self._api_key}"},
-        )
-
-        result = {
-            "lease_active": response.get("lease_active", False),
-        }
-
-        if response.get("agent_info"):
-            result["agent_info"] = AgentInfo.from_dict(response["agent_info"])
-
-        return result
-
-    def verify_offline(
-        self,
-        proof: ProofBundle,
-        challenge: bytes,
-        known_state_head: StateEntry | None = None,
     ) -> VerificationResult:
-        """Verify proof without calling Authority.
-
-        Only verifies cryptographic signatures and state chain.
-        Does NOT verify lease is currently active.
-
-        Args:
-            proof: Proof bundle from agent
-            challenge: Original challenge bytes
-            known_state_head: Previously known state head for fork detection
-
-        Returns:
-            VerificationResult (note: lease_active will always be False)
-        """
-        from sigaid.models.state import StateEntry
-
-        result = VerificationResult(
-            valid=False,
-            agent_id=proof.agent_id,
-            lease_active=False,  # Can't verify without Authority
-        )
-
+        """Verify via Authority service."""
+        authority = await self._get_authority()
+        
         try:
-            # Validate agent ID format
-            agent_id = AgentID(proof.agent_id)
-            public_key = agent_id.to_public_key_bytes()
-
-            # Verify challenge response
-            result.challenge_valid = proof.verify_challenge_response(public_key, challenge)
-            if not result.challenge_valid:
-                result.error_message = "Challenge response invalid"
-                return result
-
-            # Verify bundle signature
-            result.signature_valid = proof.verify_signature(public_key)
-            if not result.signature_valid:
-                result.error_message = "Bundle signature invalid"
-                return result
-
-            # Verify state chain
-            if proof.state_head:
-                if not proof.state_head.verify_signature(public_key):
-                    result.error_message = "State entry signature invalid"
-                    return result
-
-                if not proof.state_head.verify_hash():
-                    result.error_message = "State entry hash invalid"
-                    return result
-
-                # Check for fork if we have known state
-                if known_state_head:
-                    self._chain_verifier.record_head(proof.agent_id, known_state_head)
-                    self._chain_verifier.verify_head(proof.agent_id, proof.state_head)
-
-                result.chain_valid = True
-                result.state_verified = True
-            else:
-                result.chain_valid = True
-
-            result.valid = True
+            result = await authority.verify_proof(proof, require_lease=require_lease)
             return result
-
+        except AgentNotFound:
+            return VerificationResult.failure(
+                proof.agent_id,
+                "agent_not_found",
+                "Agent not registered",
+            )
+        except AgentRevoked:
+            return VerificationResult.failure(
+                proof.agent_id,
+                "agent_revoked",
+                "Agent has been revoked",
+            )
         except Exception as e:
-            result.error_message = str(e)
-            return result
-
-    def record_state_head(self, agent_id: str, state_head: StateEntry) -> None:
-        """Record known state head for fork detection.
-
-        Args:
-            agent_id: Agent identifier
-            state_head: State entry to record
+            return VerificationResult.failure(
+                proof.agent_id,
+                "authority_error",
+                f"Authority verification failed: {e}",
+            )
+    
+    def _get_cached(self, agent_id: str) -> VerificationResult | None:
+        """Get cached result if valid."""
+        entry = self._cache.get(agent_id)
+        if entry is None:
+            return None
+        
+        result, expiry = entry
+        if datetime.now(timezone.utc) > expiry:
+            del self._cache[agent_id]
+            return None
+        
+        return result
+    
+    def _cache_and_return(self, result: VerificationResult) -> VerificationResult:
+        """Cache result and return it."""
+        expiry = datetime.now(timezone.utc) + timedelta(seconds=self._cache_ttl)
+        self._cache[result.agent_id] = (result, expiry)
+        return result
+    
+    def clear_cache(self, agent_id: str | None = None) -> None:
         """
-        from sigaid.models.state import StateEntry
+        Clear verification cache.
+        
+        Args:
+            agent_id: Specific agent to clear, or None for all
+        """
+        if agent_id:
+            self._cache.pop(agent_id, None)
+        else:
+            self._cache.clear()
+    
+    async def close(self) -> None:
+        """Close verifier and release resources."""
+        if self._authority:
+            await self._authority.close()
+            self._authority = None
 
-        self._chain_verifier.record_head(agent_id, state_head)
 
-
-# Import for type hints
-from sigaid.models.state import StateEntry
+# Re-export
+VerificationResult = VerificationResult

@@ -1,1 +1,0 @@
-"""SigAid Authority Service."""

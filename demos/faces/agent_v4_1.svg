@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+
+<defs>
+    <linearGradient id="face-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#4466ff" stop-opacity="0.2"/>
+        <stop offset="50%" stop-color="#2233aa" stop-opacity="0.1"/>
+        <stop offset="100%" stop-color="#4466ff" stop-opacity="0.2"/>
+    </linearGradient>
+    <radialGradient id="face-glass" cx="30%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="white" stop-opacity="0.25"/>
+        <stop offset="50%" stop-color="#4466ff" stop-opacity="0.1"/>
+        <stop offset="100%" stop-color="#2233aa" stop-opacity="0.05"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="3" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-strong" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="6" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glitch">
+        <feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>
+        <feOffset in="r" dx="2" dy="0" result="r-shift"/>
+        <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/>
+        <feOffset in="b" dx="-2" dy="0" result="b-shift"/>
+        <feBlend in="r-shift" in2="SourceGraphic" mode="screen" result="rg"/>
+        <feBlend in="rg" in2="b-shift" mode="screen"/>
+    </filter>
+</defs>
+
+<style>
+    @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+    @keyframes glow-pulse { 0%, 100% { filter: drop-shadow(0 0 4px #4466ff); } 50% { filter: drop-shadow(0 0 12px #4466ff); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    @keyframes rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes scan { 0% { transform: translateY(-10px); opacity: 0; } 50% { opacity: 0.3; } 100% { transform: translateY(210px); opacity: 0; } }
+    @keyframes glitch { 0%, 92%, 100% { transform: translate(0); } 94% { transform: translate(-2px, 1px); } 96% { transform: translate(2px, -1px); } 98% { transform: translate(-1px, -1px); } }
+    @keyframes flicker { 0%, 90%, 100% { opacity: 1; } 92% { opacity: 0.8; } 94% { opacity: 1; } 96% { opacity: 0.7; } }
+    @keyframes data-fall { 0% { transform: translateY(-20px); opacity: 0; } 10% { opacity: 0.8; } 90% { opacity: 0.8; } 100% { transform: translateY(220px); opacity: 0; } }
+    .pulse { animation: pulse 1.6254901960784314s ease-in-out infinite; }
+    .glow-pulse { animation: glow-pulse 1.6254901960784314s ease-in-out infinite; }
+    .float { animation: float 2.4382352941176473s ease-in-out infinite; }
+    .rotate { animation: rotate 6.5019607843137255s linear infinite; }
+    .glitch { animation: glitch 8.127450980392156s steps(1) infinite; }
+    .flicker { animation: flicker 4.876470588235295s steps(1) infinite; }
+</style>
+<rect width="200" height="200" fill="#0a0a14"/>
+<text x="178" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 5.372919986701785s linear 2.1552197018336505s infinite;">D</text>
+<text x="23" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 4.641338961820886s linear 1.121931828520767s infinite;">ヌ</text>
+<text x="194" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 5.00028020629837s linear 4.625817941432543s infinite;">D</text>
+<text x="8" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 5.486358264625787s linear 2.7311606289934236s infinite;">ト</text>
+<text x="56" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 5.117500326336483s linear 3.6222328456239676s infinite;">セ</text>
+<text x="111" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 5.406073808629559s linear 2.9517301835510956s infinite;">ス</text>
+<text x="192" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 5.237904858486957s linear 0.08893152426692807s infinite;">ロ</text>
+<text x="112" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 4.75807734325064s linear 1.6193539843980653s infinite;">コ</text>
+<text x="75" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 4.159131788805645s linear 3.7634672854098605s infinite;">ミ</text>
+<text x="58" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 3.4283161215959037s linear 2.7786793913548777s infinite;">9</text>
+<text x="92" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 4.317880983882303s linear 3.980331486008537s infinite;">ヨ</text>
+<text x="114" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 3.9388708909625096s linear 0.49633834372819485s infinite;">ル</text>
+<text x="114" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 5.610410712469144s linear 1.1384571572363067s infinite;">ア</text>
+<text x="80" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 3.0684058890702848s linear 3.9837042066235027s infinite;">ユ</text>
+<text x="99" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 4.709942125521653s linear 4.444026431150119s infinite;">モ</text>
+<text x="23" y="0" fill="#4466ff" font-family="monospace" font-size="10" opacity="0.5" style="animation: data-fall 3.080629778478115s linear 2.730024464634957s infinite;">チ</text>
+
+<circle cx="100" cy="100" r="85.54901960784314" fill="none" stroke="#4466ff"
+    stroke-width="2" opacity="0.5" class="glow-pulse" filter="url(#glow)"/>
+<g class="glitch"><polygon points="100,26.450980392156865 156.58823529411765,100 100,173.54901960784315 43.411764705882355,100" fill="url(#face-glass)" stroke="#4466ff" stroke-width="1.5"/></g>
+
+<polygon points="100,51.65156862745098 105.5275294117647,59.54803921568627 100,63.49627450980392 94.4724705882353,59.54803921568627" fill="#4466ff" opacity="0.6" filter="url(#glow)" class="pulse"/>
+<polygon points="100,51.65156862745098 105.5275294117647,59.54803921568627 100,63.49627450980392 94.4724705882353,59.54803921568627" fill="none" stroke="#4466ff" stroke-width="1"/>
+<g class="eyes"><circle cx="86.89803921568628" cy="92" r="13.098039215686274" fill="none" stroke="#4466ff" stroke-width="1.5"/>
+<line x1="86.89803921568628" y1="78.90196078431373" x2="86.89803921568628" y2="105.09803921568627" stroke="#4466ff" stroke-width="2" filter="url(#glow)"/>
+<circle cx="82.31372549019609" cy="92" r="2" fill="#8899ff" class="pulse"/>
+<circle cx="91.48235294117647" cy="92" r="2" fill="#8899ff" class="pulse"/>
+<circle cx="113.10196078431372" cy="98" r="13.098039215686274" fill="none" stroke="#4466ff" stroke-width="1.5"/>
+<line x1="113.10196078431372" y1="84.90196078431373" x2="113.10196078431372" y2="111.09803921568627" stroke="#4466ff" stroke-width="2" filter="url(#glow)"/>
+<circle cx="108.51764705882353" cy="98" r="2" fill="#8899ff" class="pulse"/>
+<circle cx="117.68627450980391" cy="98" r="2" fill="#8899ff" class="pulse"/></g>
+<g class="cheeks"><line x1="66.04705882352941" y1="99" x2="54.04705882352941" y2="99" stroke="#4466ff" stroke-width="2" opacity="0.9"/>
+<line x1="66.04705882352941" y1="105" x2="54.04705882352941" y2="105" stroke="#4466ff" stroke-width="2" opacity="0.7"/>
+<line x1="66.04705882352941" y1="111" x2="54.04705882352941" y2="111" stroke="#4466ff" stroke-width="2" opacity="0.5"/>
+<line x1="133.95294117647057" y1="99" x2="145.95294117647057" y2="99" stroke="#4466ff" stroke-width="2" opacity="0.9"/>
+<line x1="133.95294117647057" y1="105" x2="145.95294117647057" y2="105" stroke="#4466ff" stroke-width="2" opacity="0.7"/>
+<line x1="133.95294117647057" y1="111" x2="145.95294117647057" y2="111" stroke="#4466ff" stroke-width="2" opacity="0.5"/></g>
+<g class="mouth"><line x1="91.95816993464052" y1="126.41960784313727" x2="108.04183006535948" y2="126.41960784313727" stroke="#4466ff" stroke-width="1.5" opacity="0.7"/>
+<line x1="91.95816993464052" y1="129.41960784313727" x2="108.04183006535948" y2="129.41960784313727" stroke="#4466ff" stroke-width="1.5" opacity="0.7"/>
+<line x1="91.95816993464052" y1="132.41960784313727" x2="108.04183006535948" y2="132.41960784313727" stroke="#4466ff" stroke-width="1.5" opacity="0.7"/>
+<line x1="91.95816993464052" y1="126.41960784313727" x2="91.95816993464052" y2="132.41960784313727" stroke="#8899ff" stroke-width="1" opacity="0.5"/>
+<line x1="97.31938997821351" y1="126.41960784313727" x2="97.31938997821351" y2="132.41960784313727" stroke="#8899ff" stroke-width="1" opacity="0.5"/>
+<line x1="102.68061002178649" y1="126.41960784313727" x2="102.68061002178649" y2="132.41960784313727" stroke="#8899ff" stroke-width="1" opacity="0.5"/>
+<line x1="108.04183006535948" y1="126.41960784313727" x2="108.04183006535948" y2="132.41960784313727" stroke="#8899ff" stroke-width="1" opacity="0.5"/></g>
+
+<circle cx="100" cy="154.48431372549018" r="6" fill="#4466ff" opacity="0.3" filter="url(#glow)"/>
+<circle cx="100" cy="154.48431372549018" r="3" fill="#4466ff" filter="url(#glow-strong)" class="pulse"/>
+<g class="side-accessories"><polygon points="35.41176470588235,85.72941176470589 30.77647058823529,95 35.41176470588235,104.27058823529411" fill="none" stroke="#4466ff" stroke-width="1.5"/>
+<line x1="35.41176470588235" y1="87.72941176470589" x2="35.41176470588235" y2="102.27058823529411" stroke="#4466ff" stroke-width="1" filter="url(#glow)"/>
+<polygon points="164.58823529411765,85.72941176470589 169.2235294117647,95 164.58823529411765,104.27058823529411" fill="none" stroke="#4466ff" stroke-width="1.5"/>
+<line x1="164.58823529411765" y1="87.72941176470589" x2="164.58823529411765" y2="102.27058823529411" stroke="#4466ff" stroke-width="1" filter="url(#glow)"/></g>
+
+<path d="M80,26.450980392156865 Q75,5.798039215686277 85,-2.028431372549015" fill="none" stroke="#4466ff" stroke-width="3" stroke-linecap="round"/>
+<path d="M120,26.450980392156865 Q125,5.798039215686277 115,-2.028431372549015" fill="none" stroke="#4466ff" stroke-width="3" stroke-linecap="round"/>
+<circle cx="85" cy="-2.028431372549015" r="2" fill="#4466ff" filter="url(#glow)"/>
+<circle cx="115" cy="-2.028431372549015" r="2" fill="#4466ff" filter="url(#glow)"/>
+
+<rect x="0" y="0" width="200" height="3" fill="#4466ff" opacity="0.15">
+    <animate attributeName="y" from="-10" to="210" dur="3.2509803921568627s" repeatCount="indefinite"/>
+</rect>
+</svg>

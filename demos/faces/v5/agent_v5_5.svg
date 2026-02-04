@@ -1,0 +1,195 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+
+<defs>
+    <linearGradient id="face-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#ff4400" stop-opacity="0.2"/>
+        <stop offset="50%" stop-color="#cc2200" stop-opacity="0.1"/>
+        <stop offset="100%" stop-color="#ff4400" stop-opacity="0.2"/>
+    </linearGradient>
+    <radialGradient id="face-glass" cx="30%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="white" stop-opacity="0.25"/>
+        <stop offset="50%" stop-color="#ff4400" stop-opacity="0.1"/>
+        <stop offset="100%" stop-color="#cc2200" stop-opacity="0.05"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="3" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-strong" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="6" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glitch">
+        <feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>
+        <feOffset in="r" dx="2" dy="0" result="r-shift"/>
+        <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/>
+        <feOffset in="b" dx="-2" dy="0" result="b-shift"/>
+        <feBlend in="r-shift" in2="SourceGraphic" mode="screen" result="rg"/>
+        <feBlend in="rg" in2="b-shift" mode="screen"/>
+    </filter>
+</defs>
+
+<style>
+    @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+    @keyframes glow-pulse { 0%, 100% { filter: drop-shadow(0 0 4px #ff6600); } 50% { filter: drop-shadow(0 0 12px #ff6600); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    @keyframes rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes glitch { 0%, 92%, 100% { transform: translate(0); } 94% { transform: translate(-2px, 1px); } 96% { transform: translate(2px, -1px); } 98% { transform: translate(-1px, -1px); } }
+    @keyframes flicker { 0%, 90%, 100% { opacity: 1; } 92% { opacity: 0.8; } 96% { opacity: 0.7; } }
+    @keyframes data-fall { 0% { transform: translateY(-20px); opacity: 0; } 10% { opacity: 0.8; } 90% { opacity: 0.8; } 100% { transform: translateY(220px); opacity: 0; } }
+    @keyframes electric { 0%, 100% { opacity: 0.6; } 25% { opacity: 1; } 50% { opacity: 0.4; } 75% { opacity: 0.9; } }
+    @keyframes flame { 0%, 100% { transform: scaleY(1) translateY(0); } 50% { transform: scaleY(1.1) translateY(-2px); } }
+    .pulse { animation: pulse 2.2215686274509805s ease-in-out infinite; }
+    .glow-pulse { animation: glow-pulse 2.2215686274509805s ease-in-out infinite; }
+    .float { animation: float 3.3323529411764707s ease-in-out infinite; }
+    .rotate { animation: rotate 8.886274509803922s linear infinite; }
+    .glitch { animation: glitch 11.107843137254903s steps(1) infinite; }
+    .flicker { animation: flicker 6.6647058823529415s steps(1) infinite; }
+    .electric { animation: electric 1.1107843137254902s steps(2) infinite; }
+    .flame { animation: flame 1.7772549019607844s ease-in-out infinite; }
+</style>
+<rect width="200" height="200" fill="#100808"/>
+<text x="35" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.4408968589241455s linear 1.9758730445124355s infinite;">B</text>
+<text x="35" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.4408968589241455s linear 2.0758730445124356s infinite;">フ</text>
+<text x="35" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.4408968589241455s linear 2.1758730445124357s infinite;">ウ</text>
+<text x="35" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.4408968589241455s linear 2.2758730445124353s infinite;">A</text>
+<text x="35" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 3.4408968589241455s linear 2.3758730445124354s infinite;">フ</text>
+<text x="5" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.1986345047525298s linear 0.5926217512642635s infinite;">C</text>
+<text x="5" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.1986345047525298s linear 0.6926217512642635s infinite;">ソ</text>
+<text x="5" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.1986345047525298s linear 0.7926217512642635s infinite;">ワ</text>
+<text x="5" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.1986345047525298s linear 0.8926217512642636s infinite;">タ</text>
+<text x="5" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 3.1986345047525298s linear 0.9926217512642636s infinite;">6</text>
+<text x="153" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 4.4626150036564685s linear 2.5288555304311777s infinite;">ヒ</text>
+<text x="153" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 4.4626150036564685s linear 2.628855530431178s infinite;">ア</text>
+<text x="153" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 4.4626150036564685s linear 2.728855530431178s infinite;">5</text>
+<text x="153" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 4.4626150036564685s linear 2.828855530431178s infinite;">E</text>
+<text x="153" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 4.4626150036564685s linear 2.9288555304311776s infinite;">ツ</text>
+<text x="144" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 4.889181626957625s linear 1.6689817052563027s infinite;">ニ</text>
+<text x="144" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 4.889181626957625s linear 1.7689817052563028s infinite;">9</text>
+<text x="144" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 4.889181626957625s linear 1.8689817052563027s infinite;">ミ</text>
+<text x="55" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.9830820937643003s linear 2.620622372811659s infinite;">6</text>
+<text x="55" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.9830820937643003s linear 2.720622372811659s infinite;">7</text>
+<text x="55" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.9830820937643003s linear 2.820622372811659s infinite;">7</text>
+<text x="55" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.9830820937643003s linear 2.9206223728116587s infinite;">タ</text>
+<text x="24" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 4.856515629214151s linear 2.4451390043130132s infinite;">0</text>
+<text x="24" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 4.856515629214151s linear 2.5451390043130133s infinite;">E</text>
+<text x="24" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 4.856515629214151s linear 2.6451390043130134s infinite;">オ</text>
+<text x="24" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 4.856515629214151s linear 2.745139004313013s infinite;">7</text>
+<text x="24" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 4.856515629214151s linear 2.845139004313013s infinite;">ヤ</text>
+<text x="94" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.4003754445297165s linear 2.09635197279371s infinite;">6</text>
+<text x="94" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.4003754445297165s linear 2.19635197279371s infinite;">ス</text>
+<text x="94" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.4003754445297165s linear 2.29635197279371s infinite;">ヤ</text>
+<text x="94" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.4003754445297165s linear 2.3963519727937097s infinite;">1</text>
+<text x="94" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 3.4003754445297165s linear 2.49635197279371s infinite;">ニ</text>
+<text x="94" y="60" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.050000000000000044" style="animation: data-fall 3.4003754445297165s linear 2.59635197279371s infinite;">9</text>
+<text x="62" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.2862603906114662s linear 1.550195990889684s infinite;">オ</text>
+<text x="62" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.2862603906114662s linear 1.6501959908896842s infinite;">キ</text>
+<text x="62" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.2862603906114662s linear 1.750195990889684s infinite;">オ</text>
+<text x="62" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.2862603906114662s linear 1.8501959908896841s infinite;">C</text>
+<text x="78" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.066220251188832s linear 2.8148290053453864s infinite;">ク</text>
+<text x="78" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.066220251188832s linear 2.9148290053453865s infinite;">6</text>
+<text x="78" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.066220251188832s linear 3.0148290053453866s infinite;">ハ</text>
+<text x="175" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 2.844414348327695s linear 1.2714173917810276s infinite;">リ</text>
+<text x="175" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 2.844414348327695s linear 1.3714173917810277s infinite;">ア</text>
+<text x="175" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 2.844414348327695s linear 1.4714173917810276s infinite;">タ</text>
+<text x="175" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 2.844414348327695s linear 1.5714173917810277s infinite;">シ</text>
+<text x="175" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 2.844414348327695s linear 1.6714173917810276s infinite;">マ</text>
+<text x="175" y="60" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.050000000000000044" style="animation: data-fall 2.844414348327695s linear 1.7714173917810276s infinite;">リ</text>
+<text x="175" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.007377289648434s linear 1.7672062839368317s infinite;">D</text>
+<text x="175" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.007377289648434s linear 1.8672062839368317s infinite;">0</text>
+<text x="175" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.007377289648434s linear 1.9672062839368316s infinite;">リ</text>
+<text x="175" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.007377289648434s linear 2.067206283936832s infinite;">ヤ</text>
+<text x="133" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 4.055184653965566s linear 3.8534402532491887s infinite;">ヲ</text>
+<text x="133" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 4.055184653965566s linear 3.953440253249189s infinite;">コ</text>
+<text x="133" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 4.055184653965566s linear 4.053440253249189s infinite;">2</text>
+<text x="32" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.65198918529371s linear 3.9100518163896854s infinite;">ツ</text>
+<text x="32" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.65198918529371s linear 4.010051816389685s infinite;">サ</text>
+<text x="32" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.65198918529371s linear 4.110051816389685s infinite;">コ</text>
+<text x="181" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 2.594334400166622s linear 1.411316901403496s infinite;">セ</text>
+<text x="181" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 2.594334400166622s linear 1.5113169014034962s infinite;">ヨ</text>
+<text x="181" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 2.594334400166622s linear 1.611316901403496s infinite;">1</text>
+<text x="181" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 2.594334400166622s linear 1.7113169014034961s infinite;">ヤ</text>
+<text x="126" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 4.516335958997466s linear 0.42021547597658104s infinite;">ン</text>
+<text x="126" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 4.516335958997466s linear 0.520215475976581s infinite;">ス</text>
+<text x="126" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 4.516335958997466s linear 0.620215475976581s infinite;">7</text>
+<text x="126" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 4.516335958997466s linear 0.7202154759765811s infinite;">ト</text>
+<text x="126" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 4.516335958997466s linear 0.8202154759765811s infinite;">ミ</text>
+<text x="58" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.317830500528161s linear 2.970672770283252s infinite;">5</text>
+<text x="58" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.317830500528161s linear 3.070672770283252s infinite;">ツ</text>
+<text x="58" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.317830500528161s linear 3.170672770283252s infinite;">0</text>
+<text x="58" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.317830500528161s linear 3.2706727702832517s infinite;">ル</text>
+<text x="58" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 3.317830500528161s linear 3.3706727702832517s infinite;">E</text>
+<text x="34" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 4.976372442198158s linear 2.6589836988776634s infinite;">8</text>
+<text x="34" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 4.976372442198158s linear 2.7589836988776635s infinite;">ク</text>
+<text x="34" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 4.976372442198158s linear 2.8589836988776636s infinite;">D</text>
+<text x="189" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.181790411665423s linear 1.9767728293801747s infinite;">ム</text>
+<text x="189" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.181790411665423s linear 2.076772829380175s infinite;">ル</text>
+<text x="189" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.181790411665423s linear 2.176772829380175s infinite;">キ</text>
+<text x="189" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.181790411665423s linear 2.2767728293801746s infinite;">セ</text>
+<text x="13" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.84847497208594s linear 2.9289622724287847s infinite;">ヲ</text>
+<text x="13" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.84847497208594s linear 3.028962272428785s infinite;">ニ</text>
+<text x="13" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.84847497208594s linear 3.128962272428785s infinite;">ル</text>
+<text x="13" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.84847497208594s linear 3.2289622724287845s infinite;">A</text>
+<text x="13" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 3.84847497208594s linear 3.3289622724287846s infinite;">キ</text>
+<text x="13" y="60" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.050000000000000044" style="animation: data-fall 3.84847497208594s linear 3.4289622724287847s infinite;">ク</text>
+<text x="193" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 2.9104810849035183s linear 3.096227155778155s infinite;">イ</text>
+<text x="193" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 2.9104810849035183s linear 3.196227155778155s infinite;">E</text>
+<text x="193" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 2.9104810849035183s linear 3.2962271557781553s infinite;">1</text>
+<text x="193" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 2.9104810849035183s linear 3.3962271557781554s infinite;">メ</text>
+<text x="193" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 2.9104810849035183s linear 3.496227155778155s infinite;">キ</text>
+<text x="122" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 2.6467286869925206s linear 3.472752725113933s infinite;">ハ</text>
+<text x="122" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 2.6467286869925206s linear 3.5727527251139333s infinite;">D</text>
+<text x="122" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 2.6467286869925206s linear 3.6727527251139334s infinite;">ニ</text>
+<text x="122" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 2.6467286869925206s linear 3.772752725113933s infinite;">3</text>
+<text x="29" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 4.0376653401410865s linear 3.162423904718962s infinite;">ワ</text>
+<text x="29" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 4.0376653401410865s linear 3.262423904718962s infinite;">E</text>
+<text x="29" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 4.0376653401410865s linear 3.362423904718962s infinite;">テ</text>
+<text x="29" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 4.0376653401410865s linear 3.462423904718962s infinite;">ナ</text>
+<text x="29" y="48" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.20000000000000007" style="animation: data-fall 4.0376653401410865s linear 3.562423904718962s infinite;">サ</text>
+<text x="121" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.4302899057876735s linear 2.4725339520538014s infinite;">ヘ</text>
+<text x="121" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.4302899057876735s linear 2.5725339520538015s infinite;">E</text>
+<text x="121" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.4302899057876735s linear 2.6725339520538016s infinite;">C</text>
+<text x="146" y="0" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.8" style="animation: data-fall 3.5441559927816804s linear 0.9441814545381679s infinite;">ス</text>
+<text x="146" y="12" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.65" style="animation: data-fall 3.5441559927816804s linear 1.044181454538168s infinite;">フ</text>
+<text x="146" y="24" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.5" style="animation: data-fall 3.5441559927816804s linear 1.1441814545381679s infinite;">ヒ</text>
+<text x="146" y="36" fill="#ff4400" font-family="monospace" font-size="9" opacity="0.3500000000000001" style="animation: data-fall 3.5441559927816804s linear 1.244181454538168s infinite;">0</text>
+<g class="glitch"><circle cx="100" cy="100" r="83.0392156862745" fill="none" stroke="#ff6600" stroke-width="2" opacity="0.6"/></g>
+<ellipse cx="100" cy="20.726078431372557" rx="58.694117647058825" ry="4.312941176470588" fill="none" stroke="#ff6600" stroke-width="2" filter="url(#glow)" class="pulse"/><ellipse cx="100" cy="20.726078431372557" rx="58.694117647058825" ry="4.312941176470588" fill="none" stroke="#ff4400" stroke-width="0.5" opacity="0.5"/>
+<g class="glitch"><polygon points="100,28.960784313725497 155.43333333333334,75.13627450980393 145.65098039215687,146.17549019607844 100,171.0392156862745 54.34901960784314,146.17549019607844 44.56666666666666,75.13627450980393" fill="url(#face-glass)" stroke="#ff4400" stroke-width="1.5"/></g>
+<text x="100" y="63.94113725490196" text-anchor="middle" fill="#ff6600" font-size="25.10588235294118" filter="url(#glow)" class="pulse">∞</text>
+<g class="eyes"><circle cx="96.34117647058824" cy="95.0" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="91.47843137254901" cy="103.42252157406043" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="81.75294117647059" cy="103.42252157406043" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="76.89019607843136" cy="95.0" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="81.75294117647057" cy="86.57747842593957" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="91.47843137254901" cy="86.57747842593957" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="86.6156862745098" cy="95" r="5.835294117647059" fill="#ff6600" filter="url(#glow)" class="pulse"/>
+<circle cx="123.10980392156864" cy="95.0" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="118.24705882352941" cy="103.42252157406043" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="108.52156862745099" cy="103.42252157406043" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="103.65882352941176" cy="95.0" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="108.52156862745097" cy="86.57747842593957" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="118.24705882352941" cy="86.57747842593957" r="5.835294117647059" fill="none" stroke="#ff4400" stroke-width="1"/>
+<circle cx="113.3843137254902" cy="95" r="5.835294117647059" fill="#ff6600" filter="url(#glow)" class="pulse"/></g>
+<g class="cheeks"><circle cx="60.870588235294115" cy="101" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="60.870588235294115" cy="109" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="55.870588235294115" cy="101" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="55.870588235294115" cy="109" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="50.870588235294115" cy="101" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="50.870588235294115" cy="109" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="139.12941176470588" cy="101" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="139.12941176470588" cy="109" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="144.12941176470588" cy="101" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="144.12941176470588" cy="109" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="149.12941176470588" cy="101" r="1.5" fill="#ff4400" opacity="0.7"/>
+<circle cx="149.12941176470588" cy="109" r="1.5" fill="#ff4400" opacity="0.7"/></g>
+<g class="mouth"><rect x="90.56862745098039" y="124.4156862745098" width="18.862745098039216" height="8" fill="none" stroke="#ff4400" stroke-width="1" rx="2"/>
+<line x1="94.56862745098039" y1="126.4156862745098" x2="94.56862745098039" y2="130.4156862745098" stroke="#ff4400" stroke-width="1.5"/>
+<line x1="97.2843137254902" y1="126.4156862745098" x2="97.2843137254902" y2="130.4156862745098" stroke="#ff4400" stroke-width="1.5"/>
+<line x1="100.0" y1="126.4156862745098" x2="100.0" y2="130.4156862745098" stroke="#ff4400" stroke-width="1.5"/>
+<line x1="102.7156862745098" y1="126.4156862745098" x2="102.7156862745098" y2="130.4156862745098" stroke="#ff4400" stroke-width="1.5"/>
+<line x1="105.4313725490196" y1="126.4156862745098" x2="105.4313725490196" y2="130.4156862745098" stroke="#ff4400" stroke-width="1.5"/></g>
+<g class="chin"><line x1="88" y1="149.72745098039215" x2="88" y2="155.72745098039215" stroke="#ff4400" stroke-width="2" opacity="0.6"/><line x1="96" y1="149.72745098039215" x2="96" y2="155.72745098039215" stroke="#ff4400" stroke-width="2" opacity="0.6"/><line x1="104" y1="149.72745098039215" x2="104" y2="155.72745098039215" stroke="#ff4400" stroke-width="2" opacity="0.6"/><line x1="112" y1="149.72745098039215" x2="112" y2="155.72745098039215" stroke="#ff4400" stroke-width="2" opacity="0.6"/></g>
+
+<rect x="0" y="0" width="200" height="3" fill="#ff4400" opacity="0.15"><animate attributeName="y" from="-10" to="210" dur="4.443137254901961s" repeatCount="indefinite"/></rect>
+</svg>

@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+
+<defs>
+    <linearGradient id="face-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#cccccc" stop-opacity="0.2"/>
+        <stop offset="50%" stop-color="#888888" stop-opacity="0.1"/>
+        <stop offset="100%" stop-color="#cccccc" stop-opacity="0.2"/>
+    </linearGradient>
+    <radialGradient id="face-glass" cx="30%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="white" stop-opacity="0.25"/>
+        <stop offset="50%" stop-color="#cccccc" stop-opacity="0.1"/>
+        <stop offset="100%" stop-color="#888888" stop-opacity="0.05"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="3" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-strong" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="6" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glitch">
+        <feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>
+        <feOffset in="r" dx="2" dy="0" result="r-shift"/>
+        <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/>
+        <feOffset in="b" dx="-2" dy="0" result="b-shift"/>
+        <feBlend in="r-shift" in2="SourceGraphic" mode="screen" result="rg"/>
+        <feBlend in="rg" in2="b-shift" mode="screen"/>
+    </filter>
+</defs>
+
+<style>
+    @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+    @keyframes glow-pulse { 0%, 100% { filter: drop-shadow(0 0 4px #cccccc); } 50% { filter: drop-shadow(0 0 12px #cccccc); } }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    @keyframes rotate { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes scan { 0% { transform: translateY(-10px); opacity: 0; } 50% { opacity: 0.3; } 100% { transform: translateY(210px); opacity: 0; } }
+    @keyframes glitch { 0%, 92%, 100% { transform: translate(0); } 94% { transform: translate(-2px, 1px); } 96% { transform: translate(2px, -1px); } 98% { transform: translate(-1px, -1px); } }
+    @keyframes flicker { 0%, 90%, 100% { opacity: 1; } 92% { opacity: 0.8; } 94% { opacity: 1; } 96% { opacity: 0.7; } }
+    @keyframes data-fall { 0% { transform: translateY(-20px); opacity: 0; } 10% { opacity: 0.8; } 90% { opacity: 0.8; } 100% { transform: translateY(220px); opacity: 0; } }
+    .pulse { animation: pulse 2.0019607843137255s ease-in-out infinite; }
+    .glow-pulse { animation: glow-pulse 2.0019607843137255s ease-in-out infinite; }
+    .float { animation: float 3.0029411764705882s ease-in-out infinite; }
+    .rotate { animation: rotate 8.007843137254902s linear infinite; }
+    .glitch { animation: glitch 10.009803921568627s steps(1) infinite; }
+    .flicker { animation: flicker 6.0058823529411764s steps(1) infinite; }
+</style>
+<rect width="200" height="200" fill="#101010"/>
+
+<circle cx="100" cy="100" r="95.74509803921569" fill="none" stroke="#cccccc"
+    stroke-width="2" opacity="0.5" class="glow-pulse" filter="url(#glow)"/>
+<g class="glitch"><polygon points="100,16.25490196078431 168.66666666666669,100 100,183.7450980392157 31.33333333333333,100" fill="url(#face-glass)" stroke="#cccccc" stroke-width="1.5"/></g>
+
+<circle cx="100" cy="53.94019607843136" r="7.199999999999999" fill="none" stroke="#cccccc" stroke-width="1.5" class="pulse"/>
+<circle cx="100" cy="53.94019607843136" r="2.88" fill="#cccccc" filter="url(#glow)" class="pulse"/>
+<g class="eyes"><circle cx="82.66274509803921" cy="92" r="17.176470588235293" fill="none" stroke="#cccccc" stroke-width="1" stroke-dasharray="4 2"/>
+<circle cx="82.66274509803921" cy="92" r="8.588235294117647" fill="none" stroke="#cccccc" stroke-width="1.5"/>
+<line x1="92.96862745098039" y1="92.0" x2="101.55686274509803" y2="92.0" stroke="#cccccc" stroke-width="1.5"/>
+<line x1="82.66274509803921" y1="102.30588235294118" x2="82.66274509803921" y2="110.89411764705882" stroke="#cccccc" stroke-width="1.5"/>
+<line x1="72.35686274509803" y1="92.0" x2="63.76862745098039" y2="92.0" stroke="#cccccc" stroke-width="1.5"/>
+<line x1="82.66274509803921" y1="81.69411764705882" x2="82.66274509803921" y2="73.10588235294118" stroke="#cccccc" stroke-width="1.5"/>
+<circle cx="82.66274509803921" cy="92" r="2" fill="#cccccc" filter="url(#glow)" class="pulse"/>
+<circle cx="117.33725490196079" cy="98" r="17.176470588235293" fill="none" stroke="#cccccc" stroke-width="1" stroke-dasharray="4 2"/>
+<circle cx="117.33725490196079" cy="98" r="8.588235294117647" fill="none" stroke="#cccccc" stroke-width="1.5"/>
+<line x1="127.64313725490197" y1="98.0" x2="136.23137254901962" y2="98.0" stroke="#cccccc" stroke-width="1.5"/>
+<line x1="117.33725490196079" y1="108.30588235294118" x2="117.33725490196079" y2="116.89411764705882" stroke="#cccccc" stroke-width="1.5"/>
+<line x1="107.03137254901961" y1="98.0" x2="98.44313725490197" y2="98.0" stroke="#cccccc" stroke-width="1.5"/>
+<line x1="117.33725490196079" y1="87.69411764705882" x2="117.33725490196079" y2="79.10588235294118" stroke="#cccccc" stroke-width="1.5"/>
+<circle cx="117.33725490196079" cy="98" r="2" fill="#cccccc" filter="url(#glow)" class="pulse"/></g>
+<g class="cheeks"><line x1="63.8" y1="95" x2="50.8" y2="115" stroke="#cccccc" stroke-width="1.5" opacity="0.6"/>
+<line x1="58.8" y1="97" x2="48.8" y2="110" stroke="#cccccc" stroke-width="1" opacity="0.4"/>
+<line x1="136.2" y1="95" x2="149.2" y2="115" stroke="#cccccc" stroke-width="1.5" opacity="0.6"/>
+<line x1="141.2" y1="97" x2="151.2" y2="110" stroke="#cccccc" stroke-width="1" opacity="0.4"/></g>
+<g class="mouth"><line x1="91.55294117647058" y1="133.49803921568628" x2="108.44705882352942" y2="133.49803921568628" stroke="#cccccc" stroke-width="1" opacity="0.4"/></g>
+
+<rect x="94" y="158.62156862745098" width="12" height="8" fill="none" stroke="#cccccc" stroke-width="1" rx="1"/>
+<rect x="97" y="160.62156862745098" width="6" height="4" fill="#cccccc" opacity="0.5"/>
+<g class="side-accessories"><line x1="23.33333333333333" y1="95" x2="11.474509803921565" y2="77.21176470588236" stroke="#cccccc" stroke-width="1.5"/>
+<circle cx="11.474509803921565" cy="77.21176470588236" r="3" fill="#cccccc" filter="url(#glow)" class="pulse"/>
+<line x1="176.66666666666669" y1="95" x2="188.52549019607844" y2="77.21176470588236" stroke="#cccccc" stroke-width="1.5"/>
+<circle cx="188.52549019607844" cy="77.21176470588236" r="3" fill="#cccccc" filter="url(#glow)" class="pulse"/></g>
+
+<rect x="51.93333333333333" y="6.749607843137251" width="96.13333333333334" height="7.508823529411765" fill="#cccccc" opacity="0.3" filter="url(#glow)" rx="2"/>
+<rect x="51.93333333333333" y="6.749607843137251" width="96.13333333333334" height="7.508823529411765" fill="none" stroke="#cccccc" stroke-width="1" rx="2"/>
+
+<rect x="0" y="0" width="200" height="3" fill="#cccccc" opacity="0.15">
+    <animate attributeName="y" from="-10" to="210" dur="4.003921568627451s" repeatCount="indefinite"/>
+</rect>
+</svg>

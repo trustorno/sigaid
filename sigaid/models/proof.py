@@ -1,12 +1,13 @@
-"""Proof bundle model for verification."""
+"""Proof bundle and verification result models."""
 
 from __future__ import annotations
 
-import base64
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, TYPE_CHECKING
+
+from sigaid.constants import DOMAIN_VERIFY
 
 if TYPE_CHECKING:
     from sigaid.models.state import StateEntry
@@ -15,86 +16,139 @@ if TYPE_CHECKING:
 
 @dataclass
 class ProofBundle:
-    """Complete proof bundle for verification.
-
-    A proof bundle contains everything needed for a third party
-    to verify an agent's identity, current lease, and state history.
-
+    """
+    Complete proof bundle for agent verification.
+    
+    A ProofBundle contains everything needed to verify an agent's identity,
+    current lease, and state chain integrity.
+    
     Example:
         # Agent creates proof
-        proof = ProofBundle.create(
-            agent_id="aid_xxx",
-            lease_token="v4.local.xxx",
-            state_head=current_state,
-            challenge=b"random_bytes",
-            keypair=my_keypair,
-        )
-
+        proof = client.create_proof(challenge=nonce)
+        
         # Service verifies proof
-        verifier = Verifier(api_key="...")
         result = await verifier.verify(proof)
     """
-
     agent_id: str
     lease_token: str
     state_head: StateEntry | None
+    challenge: bytes
     challenge_response: bytes  # Signature over challenge
     timestamp: datetime
     signature: bytes  # Signature over entire bundle
-
+    
     # Optional attestations
     user_attestation: bytes | None = None
     third_party_attestations: list[bytes] = field(default_factory=list)
-
+    
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "agent_id": self.agent_id,
+            "lease_token": self.lease_token,
+            "state_head": self.state_head.to_dict() if self.state_head else None,
+            "challenge": self.challenge.hex(),
+            "challenge_response": self.challenge_response.hex(),
+            "timestamp": self.timestamp.isoformat(),
+            "signature": self.signature.hex(),
+            "user_attestation": self.user_attestation.hex() if self.user_attestation else None,
+            "third_party_attestations": [a.hex() for a in self.third_party_attestations],
+        }
+    
     @classmethod
-    def create(
-        cls,
-        agent_id: str,
-        lease_token: str,
-        state_head: StateEntry | None,
+    def from_dict(cls, data: dict[str, Any]) -> ProofBundle:
+        """Create from dictionary."""
+        from sigaid.models.state import StateEntry
+        
+        return cls(
+            agent_id=data["agent_id"],
+            lease_token=data["lease_token"],
+            state_head=StateEntry.from_dict(data["state_head"]) if data.get("state_head") else None,
+            challenge=bytes.fromhex(data["challenge"]),
+            challenge_response=bytes.fromhex(data["challenge_response"]),
+            timestamp=datetime.fromisoformat(data["timestamp"]),
+            signature=bytes.fromhex(data["signature"]),
+            user_attestation=bytes.fromhex(data["user_attestation"]) if data.get("user_attestation") else None,
+            third_party_attestations=[bytes.fromhex(a) for a in data.get("third_party_attestations", [])],
+        )
+    
+    def to_bytes(self) -> bytes:
+        """Serialize to bytes for transmission."""
+        return json.dumps(self.to_dict()).encode("utf-8")
+    
+    @classmethod
+    def from_bytes(cls, data: bytes) -> ProofBundle:
+        """Deserialize from bytes."""
+        return cls.from_dict(json.loads(data.decode("utf-8")))
+    
+    def signable_bytes(self) -> bytes:
+        """Get bytes that are signed for the bundle signature."""
+        # All fields except the final signature
+        parts = [
+            self.agent_id.encode("utf-8"),
+            self.lease_token.encode("utf-8"),
+            self.state_head.entry_hash if self.state_head else bytes(32),
+            self.challenge,
+            self.challenge_response,
+            self.timestamp.isoformat().encode("utf-8"),
+        ]
+        return b"".join(parts)
+
+
+@dataclass
+class ProofBundleBuilder:
+    """
+    Builder for creating proof bundles.
+    
+    Example:
+        builder = ProofBundleBuilder(agent_id, keypair, lease_token, state_head)
+        proof = builder.build(challenge=nonce)
+    """
+    agent_id: str
+    keypair: KeyPair
+    lease_token: str
+    state_head: StateEntry | None
+    
+    def build(
+        self,
         challenge: bytes,
-        keypair: KeyPair,
         user_attestation: bytes | None = None,
         third_party_attestations: list[bytes] | None = None,
     ) -> ProofBundle:
-        """Create a proof bundle with automatic signing.
-
+        """
+        Build and sign a proof bundle.
+        
         Args:
-            agent_id: Agent identifier
-            lease_token: Current lease token
-            state_head: Current state chain head (or None if no history)
-            challenge: Challenge bytes to sign
-            keypair: Agent's keypair for signing
-            user_attestation: Optional user authorization
+            challenge: Challenge bytes from verifier
+            user_attestation: Optional user attestation
             third_party_attestations: Optional third-party attestations
-
+            
         Returns:
             Signed ProofBundle
         """
-        from sigaid.constants import DOMAIN_VERIFY
-        from sigaid.crypto.hashing import hash_bytes
-
         timestamp = datetime.now(timezone.utc)
-
-        # Sign the challenge
-        challenge_response = keypair.sign(challenge, domain=DOMAIN_VERIFY)
-
-        # Create bundle content for signing
-        bundle_content = cls._create_signable(
-            agent_id=agent_id,
-            lease_token=lease_token,
-            state_head=state_head,
-            challenge_response=challenge_response,
-            timestamp=timestamp,
+        
+        # Sign challenge
+        challenge_response = self.keypair.sign_with_domain(challenge, DOMAIN_VERIFY)
+        
+        # Build signable content
+        signable = (
+            self.agent_id.encode("utf-8") +
+            self.lease_token.encode("utf-8") +
+            (self.state_head.entry_hash if self.state_head else bytes(32)) +
+            challenge +
+            challenge_response +
+            timestamp.isoformat().encode("utf-8")
         )
-
-        # Sign the entire bundle
-        signature = keypair.sign(bundle_content, domain=DOMAIN_VERIFY)
-
-        return cls(
-            agent_id=agent_id,
-            lease_token=lease_token,
-            state_head=state_head,
+        
+        # Sign bundle
+        signature = self.keypair.sign_with_domain(signable, DOMAIN_VERIFY)
+        
+        return ProofBundle(
+            agent_id=self.agent_id,
+            lease_token=self.lease_token,
+            state_head=self.state_head,
+            challenge=challenge,
             challenge_response=challenge_response,
             timestamp=timestamp,
             signature=signature,
@@ -102,158 +156,86 @@ class ProofBundle:
             third_party_attestations=third_party_attestations or [],
         )
 
-    @staticmethod
-    def _create_signable(
-        agent_id: str,
-        lease_token: str,
-        state_head: StateEntry | None,
-        challenge_response: bytes,
-        timestamp: datetime,
-    ) -> bytes:
-        """Create signable content for the bundle."""
-        parts = [
-            agent_id.encode("utf-8"),
-            lease_token.encode("utf-8"),
-            state_head.entry_hash if state_head else bytes(32),
-            challenge_response,
-            timestamp.isoformat().encode("utf-8"),
-        ]
-        return b"".join(parts)
 
-    def to_signable_bytes(self) -> bytes:
-        """Get canonical bytes for verification.
-
-        Returns:
-            Signable byte representation
-        """
-        return self._create_signable(
-            agent_id=self.agent_id,
-            lease_token=self.lease_token,
-            state_head=self.state_head,
-            challenge_response=self.challenge_response,
-            timestamp=self.timestamp,
-        )
-
-    def verify_signature(self, public_key: bytes) -> bool:
-        """Verify bundle signature.
-
-        Args:
-            public_key: 32-byte Ed25519 public key
-
-        Returns:
-            True if signature is valid
-        """
-        from sigaid.crypto.keys import public_key_from_bytes
-        from sigaid.crypto.signing import verify_with_domain_safe
-        from sigaid.constants import DOMAIN_VERIFY
-
-        pk = public_key_from_bytes(public_key)
-        signable = self.to_signable_bytes()
-        return verify_with_domain_safe(pk, self.signature, signable, DOMAIN_VERIFY)
-
-    def verify_challenge_response(self, public_key: bytes, challenge: bytes) -> bool:
-        """Verify the challenge response.
-
-        Args:
-            public_key: 32-byte Ed25519 public key
-            challenge: Original challenge bytes
-
-        Returns:
-            True if challenge response is valid
-        """
-        from sigaid.crypto.keys import public_key_from_bytes
-        from sigaid.crypto.signing import verify_with_domain_safe
-        from sigaid.constants import DOMAIN_VERIFY
-
-        pk = public_key_from_bytes(public_key)
-        return verify_with_domain_safe(pk, self.challenge_response, challenge, DOMAIN_VERIFY)
-
-    def to_bytes(self) -> bytes:
-        """Serialize to bytes.
-
-        Returns:
-            Serialized proof bundle
-        """
-        return json.dumps(self.to_dict()).encode("utf-8")
-
-    @classmethod
-    def from_bytes(cls, data: bytes) -> ProofBundle:
-        """Deserialize from bytes.
-
-        Args:
-            data: Serialized proof bundle
-
-        Returns:
-            ProofBundle instance
-        """
-        return cls.from_dict(json.loads(data.decode("utf-8")))
-
+@dataclass
+class VerificationResult:
+    """
+    Result of proof bundle verification.
+    
+    Returned by Verifier after checking a ProofBundle.
+    """
+    valid: bool
+    agent_id: str
+    
+    # Details (only populated if valid=True)
+    lease_valid: bool = False
+    lease_expires_at: datetime | None = None
+    signature_valid: bool = False
+    state_head_sequence: int | None = None
+    state_head_hash: bytes | None = None
+    
+    # Reputation (if available)
+    reputation_score: float | None = None
+    
+    # Error information (if valid=False)
+    error_code: str | None = None
+    error_message: str | None = None
+    
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary.
-
-        Returns:
-            Dictionary representation
-        """
+        """Convert to dictionary."""
         result = {
+            "valid": self.valid,
             "agent_id": self.agent_id,
-            "lease_token": self.lease_token,
-            "state_head": self.state_head.to_dict() if self.state_head else None,
-            "challenge_response": base64.b64encode(self.challenge_response).decode("ascii"),
-            "timestamp": self.timestamp.isoformat(),
-            "signature": base64.b64encode(self.signature).decode("ascii"),
+            "lease_valid": self.lease_valid,
+            "signature_valid": self.signature_valid,
         }
-
-        if self.user_attestation:
-            result["user_attestation"] = base64.b64encode(self.user_attestation).decode("ascii")
-
-        if self.third_party_attestations:
-            result["third_party_attestations"] = [
-                base64.b64encode(a).decode("ascii") for a in self.third_party_attestations
-            ]
-
+        
+        if self.lease_expires_at:
+            result["lease_expires_at"] = self.lease_expires_at.isoformat()
+        if self.state_head_sequence is not None:
+            result["state_head_sequence"] = self.state_head_sequence
+        if self.state_head_hash:
+            result["state_head_hash"] = self.state_head_hash.hex()
+        if self.reputation_score is not None:
+            result["reputation_score"] = self.reputation_score
+        if self.error_code:
+            result["error_code"] = self.error_code
+            result["error_message"] = self.error_message
+        
         return result
-
+    
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ProofBundle:
-        """Create from dictionary.
-
-        Args:
-            data: Dictionary representation
-
-        Returns:
-            ProofBundle instance
-        """
-        from sigaid.models.state import StateEntry
-
-        state_head = None
-        if data.get("state_head"):
-            state_head = StateEntry.from_dict(data["state_head"])
-
-        user_attestation = None
-        if data.get("user_attestation"):
-            user_attestation = base64.b64decode(data["user_attestation"])
-
-        third_party_attestations = []
-        if data.get("third_party_attestations"):
-            third_party_attestations = [
-                base64.b64decode(a) for a in data["third_party_attestations"]
-            ]
-
+    def success(
+        cls,
+        agent_id: str,
+        lease_expires_at: datetime,
+        state_head_sequence: int | None = None,
+        state_head_hash: bytes | None = None,
+        reputation_score: float | None = None,
+    ) -> VerificationResult:
+        """Create successful verification result."""
         return cls(
-            agent_id=data["agent_id"],
-            lease_token=data["lease_token"],
-            state_head=state_head,
-            challenge_response=base64.b64decode(data["challenge_response"]),
-            timestamp=datetime.fromisoformat(data["timestamp"]),
-            signature=base64.b64decode(data["signature"]),
-            user_attestation=user_attestation,
-            third_party_attestations=third_party_attestations,
+            valid=True,
+            agent_id=agent_id,
+            lease_valid=True,
+            lease_expires_at=lease_expires_at,
+            signature_valid=True,
+            state_head_sequence=state_head_sequence,
+            state_head_hash=state_head_hash,
+            reputation_score=reputation_score,
         )
-
-    def __repr__(self) -> str:
-        """Debug representation."""
-        return (
-            f"ProofBundle(agent_id={self.agent_id!r}, "
-            f"has_state={'yes' if self.state_head else 'no'}, "
-            f"timestamp={self.timestamp.isoformat()})"
+    
+    @classmethod
+    def failure(
+        cls,
+        agent_id: str,
+        error_code: str,
+        error_message: str,
+    ) -> VerificationResult:
+        """Create failed verification result."""
+        return cls(
+            valid=False,
+            agent_id=agent_id,
+            error_code=error_code,
+            error_message=error_message,
         )

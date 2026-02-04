@@ -1,110 +1,134 @@
-"""Tests for AgentID generation and validation."""
+"""Tests for identity/agent_id.py - AgentID generation and validation."""
 
 import pytest
 
 from sigaid.identity.agent_id import AgentID
 from sigaid.crypto.keys import KeyPair
+from sigaid.constants import AGENT_ID_PREFIX
 from sigaid.exceptions import InvalidAgentID
 
 
 class TestAgentID:
     """Tests for AgentID class."""
-
-    def test_from_public_key(self):
-        """Test creating AgentID from public key."""
-        keypair = KeyPair.generate()
+    
+    def test_from_public_key_creates_valid_id(self, keypair):
+        """from_public_key() should create valid AgentID."""
         agent_id = AgentID.from_public_key(keypair.public_key_bytes())
-
-        assert str(agent_id).startswith("aid_")
-
-    def test_from_keypair_method(self):
-        """Test creating AgentID via keypair method."""
-        keypair = KeyPair.generate()
-        agent_id = keypair.to_agent_id()
-
-        assert str(agent_id).startswith("aid_")
-
-    def test_deterministic(self):
-        """Test that same public key produces same AgentID."""
-        keypair = KeyPair.generate()
-        agent_id1 = AgentID.from_public_key(keypair.public_key_bytes())
-        agent_id2 = AgentID.from_public_key(keypair.public_key_bytes())
-
-        assert agent_id1 == agent_id2
-
-    def test_validate_valid_id(self):
-        """Test validating a valid AgentID."""
-        keypair = KeyPair.generate()
-        agent_id = keypair.to_agent_id()
-
-        # Should not raise
-        AgentID.validate(str(agent_id))
-
-    def test_validate_missing_prefix(self):
-        """Test that missing prefix is rejected."""
+        
+        assert str(agent_id).startswith(AGENT_ID_PREFIX)
+        assert AgentID.is_valid(str(agent_id))
+    
+    def test_from_keypair_matches_from_public_key(self, keypair):
+        """from_keypair() should match from_public_key()."""
+        id1 = AgentID.from_keypair(keypair)
+        id2 = AgentID.from_public_key(keypair.public_key_bytes())
+        
+        assert str(id1) == str(id2)
+    
+    def test_deterministic_for_same_key(self, keypair):
+        """Same key should always produce same AgentID."""
+        id1 = AgentID.from_public_key(keypair.public_key_bytes())
+        id2 = AgentID.from_public_key(keypair.public_key_bytes())
+        
+        assert str(id1) == str(id2)
+    
+    def test_different_keys_different_ids(self):
+        """Different keys should produce different AgentIDs."""
+        kp1 = KeyPair.generate()
+        kp2 = KeyPair.generate()
+        
+        id1 = AgentID.from_keypair(kp1)
+        id2 = AgentID.from_keypair(kp2)
+        
+        assert str(id1) != str(id2)
+    
+    def test_public_key_property(self, keypair):
+        """public_key property should return embedded key."""
+        agent_id = AgentID.from_keypair(keypair)
+        
+        assert agent_id.public_key == keypair.public_key_bytes()
+    
+    def test_string_roundtrip(self, keypair):
+        """AgentID should survive string roundtrip."""
+        original = AgentID.from_keypair(keypair)
+        restored = AgentID(str(original))
+        
+        assert str(original) == str(restored)
+        assert original.public_key == restored.public_key
+    
+    def test_rejects_invalid_prefix(self):
+        """Should reject IDs without correct prefix."""
         with pytest.raises(InvalidAgentID):
-            AgentID.validate("invalid_id_without_prefix")
-
-    def test_validate_invalid_base58(self):
-        """Test that invalid base58 is rejected."""
+            AgentID("bad_7Xq9YkPzN3mWvR5tH8jL2cBfA4dE6gS1")
+    
+    def test_rejects_invalid_base58(self):
+        """Should reject invalid Base58 encoding."""
         with pytest.raises(InvalidAgentID):
-            AgentID.validate("aid_0OIl")  # Contains invalid chars
-
-    def test_validate_bad_checksum(self):
-        """Test that bad checksum is rejected."""
+            AgentID("aid_0OIl")  # Contains invalid Base58 chars
+    
+    def test_rejects_bad_checksum(self):
+        """Should reject IDs with invalid checksum."""
         keypair = KeyPair.generate()
-        agent_id_str = str(keypair.to_agent_id())
-
-        # Corrupt the last character
-        corrupted = agent_id_str[:-1] + ("A" if agent_id_str[-1] != "A" else "B")
-
+        valid_id = str(AgentID.from_keypair(keypair))
+        
+        # Corrupt last character (checksum)
+        corrupted = valid_id[:-1] + ("x" if valid_id[-1] != "x" else "y")
+        
         with pytest.raises(InvalidAgentID):
-            AgentID.validate(corrupted)
-
-    def test_to_public_key_bytes_roundtrip(self):
-        """Test extracting public key from AgentID."""
-        keypair = KeyPair.generate()
-        original_pk = keypair.public_key_bytes()
-
-        agent_id = AgentID.from_public_key(original_pk)
-        recovered_pk = agent_id.to_public_key_bytes()
-
-        assert original_pk == recovered_pk
-
-    def test_short_representation(self):
-        """Test short form of AgentID."""
-        keypair = KeyPair.generate()
-        agent_id = keypair.to_agent_id()
-
-        short = agent_id.short
-        assert short.startswith("aid_")
+            AgentID(corrupted)
+    
+    def test_is_valid_accepts_valid_id(self, keypair):
+        """is_valid() should accept valid AgentID."""
+        agent_id = AgentID.from_keypair(keypair)
+        assert AgentID.is_valid(str(agent_id))
+    
+    def test_is_valid_rejects_invalid_id(self):
+        """is_valid() should reject invalid IDs."""
+        assert not AgentID.is_valid("invalid")
+        assert not AgentID.is_valid("")
+        assert not AgentID.is_valid("aid_")
+    
+    def test_is_valid_format_fast_check(self, keypair):
+        """is_valid_format() should be fast format check."""
+        agent_id = AgentID.from_keypair(keypair)
+        assert AgentID.is_valid_format(str(agent_id))
+        assert not AgentID.is_valid_format("invalid")
+    
+    def test_equality(self, keypair):
+        """AgentIDs should support equality comparison."""
+        id1 = AgentID.from_keypair(keypair)
+        id2 = AgentID.from_keypair(keypair)
+        id3 = AgentID.from_keypair(KeyPair.generate())
+        
+        assert id1 == id2
+        assert id1 != id3
+        assert id1 == str(id1)  # String comparison
+    
+    def test_hash(self, keypair):
+        """AgentIDs should be hashable."""
+        id1 = AgentID.from_keypair(keypair)
+        id2 = AgentID.from_keypair(keypair)
+        
+        assert hash(id1) == hash(id2)
+        
+        # Can use in sets/dicts
+        s = {id1}
+        assert id2 in s
+    
+    def test_short(self, keypair):
+        """short() should return truncated version."""
+        agent_id = AgentID.from_keypair(keypair)
+        
+        short = agent_id.short(8)
+        
+        assert short.startswith(AGENT_ID_PREFIX)
         assert short.endswith("...")
         assert len(short) < len(str(agent_id))
-
-    def test_equality_with_string(self):
-        """Test equality comparison with string."""
-        keypair = KeyPair.generate()
-        agent_id = keypair.to_agent_id()
-
-        assert agent_id == str(agent_id)
-
-    def test_equality_with_agent_id(self):
-        """Test equality comparison with another AgentID."""
-        keypair = KeyPair.generate()
-        agent_id1 = keypair.to_agent_id()
-        agent_id2 = AgentID(str(agent_id1))
-
-        assert agent_id1 == agent_id2
-
-    def test_hash_for_dict_key(self):
-        """Test that AgentID can be used as dict key."""
-        keypair = KeyPair.generate()
-        agent_id = keypair.to_agent_id()
-
-        d = {agent_id: "value"}
-        assert d[agent_id] == "value"
-
-    def test_invalid_public_key_length(self):
-        """Test that invalid public key length is rejected."""
-        with pytest.raises(InvalidAgentID):
-            AgentID.from_public_key(b"too_short")
+    
+    def test_repr(self, keypair):
+        """repr() should be informative."""
+        agent_id = AgentID.from_keypair(keypair)
+        repr_str = repr(agent_id)
+        
+        assert "AgentID" in repr_str
+        assert str(agent_id) in repr_str

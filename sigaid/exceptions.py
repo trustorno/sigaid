@@ -3,202 +3,150 @@
 
 class SigAidError(Exception):
     """Base exception for all SigAid errors."""
-
     pass
 
 
 # Crypto errors
 class CryptoError(SigAidError):
-    """Error in cryptographic operations."""
-
+    """Cryptographic operation failed."""
     pass
 
 
 class InvalidSignature(CryptoError):
     """Signature verification failed."""
-
     pass
 
 
 class InvalidKey(CryptoError):
     """Invalid key format or size."""
-
     pass
 
 
-class TokenError(CryptoError):
-    """Error with PASETO token."""
-
-    pass
-
-
-class TokenExpired(TokenError):
-    """Token has expired."""
-
-    pass
-
-
-class TokenInvalid(TokenError):
-    """Token is malformed or invalid."""
-
+class KeyDerivationError(CryptoError):
+    """Key derivation failed."""
     pass
 
 
 # Lease errors
 class LeaseError(SigAidError):
-    """Error related to lease operations."""
-
+    """Lease operation failed."""
     pass
 
 
 class LeaseHeldByAnotherInstance(LeaseError):
     """Another instance already holds the lease for this agent."""
-
-    def __init__(self, agent_id: str, holder_session_id: str | None = None):
+    
+    def __init__(self, agent_id: str, message: str | None = None):
         self.agent_id = agent_id
-        self.holder_session_id = holder_session_id
-        msg = f"Lease for agent {agent_id} is held by another instance"
-        if holder_session_id:
-            msg += f" (session: {holder_session_id[:8]}...)"
-        super().__init__(msg)
+        super().__init__(
+            message or f"Lease for agent {agent_id} is held by another instance"
+        )
 
 
 class LeaseExpired(LeaseError):
     """Lease has expired."""
-
     pass
 
 
 class LeaseNotHeld(LeaseError):
-    """Operation requires an active lease but none is held."""
-
+    """Operation requires holding a lease, but no lease is held."""
     pass
 
 
 class LeaseRenewalFailed(LeaseError):
-    """Failed to renew the lease."""
+    """Failed to renew lease."""
+    pass
 
+
+# Token errors
+class TokenError(SigAidError):
+    """Token operation failed."""
+    pass
+
+
+class TokenExpired(TokenError):
+    """Token has expired."""
+    pass
+
+
+class TokenInvalid(TokenError):
+    """Token is invalid or corrupted."""
     pass
 
 
 # State chain errors
 class StateChainError(SigAidError):
-    """Error related to state chain operations."""
-
+    """State chain operation failed."""
     pass
 
 
 class ForkDetected(StateChainError):
-    """Fork detected in state chain - indicates tampering or clone."""
-
-    def __init__(self, agent_id: str, expected_seq: int, found_seq: int, message: str = ""):
+    """State chain fork detected - potential clone or tampering."""
+    
+    def __init__(self, agent_id: str, expected_hash: bytes, actual_hash: bytes, sequence: int):
         self.agent_id = agent_id
-        self.expected_seq = expected_seq
-        self.found_seq = found_seq
-        msg = f"Fork detected for agent {agent_id}: expected seq {expected_seq}, found {found_seq}"
-        if message:
-            msg += f" - {message}"
-        super().__init__(msg)
+        self.expected_hash = expected_hash
+        self.actual_hash = actual_hash
+        self.sequence = sequence
+        super().__init__(
+            f"Fork detected for agent {agent_id} at sequence {sequence}: "
+            f"expected {expected_hash.hex()[:16]}..., got {actual_hash.hex()[:16]}..."
+        )
 
 
 class InvalidStateEntry(StateChainError):
-    """State entry is invalid (bad signature, hash, etc.)."""
-
+    """State entry is invalid."""
     pass
 
 
-class ChainIntegrityError(StateChainError):
-    """State chain integrity check failed."""
-
+class StateChainBroken(StateChainError):
+    """State chain integrity is broken."""
     pass
 
 
 # Verification errors
 class VerificationError(SigAidError):
-    """Error during verification."""
-
+    """Verification failed."""
     pass
 
 
 class ProofInvalid(VerificationError):
     """Proof bundle is invalid."""
+    pass
 
+
+class AgentNotFound(VerificationError):
+    """Agent not found in registry."""
     pass
 
 
 class AgentRevoked(VerificationError):
     """Agent has been revoked."""
-
     pass
 
 
 # Identity errors
 class IdentityError(SigAidError):
-    """Error related to agent identity."""
-
+    """Identity operation failed."""
     pass
 
 
 class InvalidAgentID(IdentityError):
-    """Agent ID format is invalid."""
-
+    """Invalid AgentID format."""
     pass
 
 
-# Network errors
+# Network/API errors
 class NetworkError(SigAidError):
     """Network communication error."""
-
     pass
 
 
-class AuthorityUnavailable(NetworkError):
-    """Cannot reach the authority service."""
-
+class AuthorityError(NetworkError):
+    """Error communicating with Authority service."""
     pass
 
 
-class RateLimitExceeded(NetworkError):
-    """Rate limit exceeded - should retry after delay."""
-
-    def __init__(self, retry_after: int = 60, message: str = ""):
-        self.retry_after = retry_after
-        msg = f"Rate limit exceeded. Retry after {retry_after} seconds"
-        if message:
-            msg += f": {message}"
-        super().__init__(msg)
-
-
-class RetryableError(SigAidError):
-    """Transient error that should be retried."""
-
+class RateLimitExceeded(AuthorityError):
+    """Rate limit exceeded."""
     pass
-
-
-class RequestTimeout(NetworkError):
-    """Request timed out."""
-
-    pass
-
-
-class ServerError(NetworkError):
-    """Server returned an error (5xx)."""
-
-    def __init__(self, status_code: int, message: str = ""):
-        self.status_code = status_code
-        msg = f"Server error {status_code}"
-        if message:
-            msg += f": {message}"
-        super().__init__(msg)
-
-
-class ClientError(NetworkError):
-    """Client error (4xx) - request was invalid."""
-
-    def __init__(self, status_code: int, message: str = "", response_data: dict | None = None):
-        self.status_code = status_code
-        self.response_data = response_data or {}
-        msg = f"Client error {status_code}"
-        if message:
-            msg += f": {message}"
-        super().__init__(msg)

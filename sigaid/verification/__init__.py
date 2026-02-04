@@ -1,6 +1,11 @@
-"""Verification module for SigAid protocol."""
+"""Verification capabilities for agents and services."""
 
-from sigaid.verification.prover import Prover
-from sigaid.verification.verifier import Verifier
+from sigaid.verification.prover import ProofBundleBuilder, ProofBundle
+from sigaid.verification.verifier import Verifier, VerificationResult
 
-__all__ = ["Prover", "Verifier"]
+__all__ = [
+    "ProofBundle",
+    "ProofBundleBuilder",
+    "Verifier",
+    "VerificationResult",
+]

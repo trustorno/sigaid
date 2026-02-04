@@ -1,157 +1,160 @@
-"""Tests for state chain operations."""
-
-import tempfile
-from pathlib import Path
+"""Tests for state/chain.py - State chain operations."""
 
 import pytest
+from datetime import datetime, timezone
 
-from sigaid.crypto.keys import KeyPair
 from sigaid.state.chain import StateChain
-from sigaid.models.state import ActionType
-from sigaid.exceptions import StateChainError
+from sigaid.models.state import ActionType, StateEntry
+from sigaid.crypto.keys import KeyPair
+from sigaid.crypto.hashing import ZERO_HASH
 
 
 class TestStateChain:
     """Tests for StateChain class."""
-
-    @pytest.fixture
-    def keypair(self):
-        """Create a keypair for testing."""
-        return KeyPair.generate()
-
+    
     @pytest.fixture
     def chain(self, keypair):
-        """Create a state chain for testing."""
-        return StateChain(
-            agent_id=str(keypair.to_agent_id()),
-            keypair=keypair,
-        )
-
-    def test_initialize_creates_genesis(self, chain):
-        """Test that initialize creates genesis entry."""
-        entry = chain.initialize()
-
-        assert entry.sequence == 0
-        assert chain.head == entry
-        assert len(chain) == 1
-
-    def test_initialize_only_once(self, chain):
-        """Test that chain can only be initialized once."""
-        chain.initialize()
-
-        with pytest.raises(StateChainError):
-            chain.initialize()
-
-    def test_append_entry(self, chain):
-        """Test appending entries to chain."""
-        chain.initialize()
-
-        entry = chain.append(
-            action_type=ActionType.TRANSACTION,
-            action_summary="Test transaction",
-            action_data={"amount": 100},
-        )
-
-        assert entry.sequence == 1
-        assert chain.head == entry
-        assert len(chain) == 2
-
-    def test_append_links_to_previous(self, chain):
-        """Test that append creates proper hash links."""
-        genesis = chain.initialize()
-        entry1 = chain.append(ActionType.TRANSACTION, "First", {"n": 1})
-        entry2 = chain.append(ActionType.TRANSACTION, "Second", {"n": 2})
-
-        assert entry1.prev_hash == genesis.entry_hash
-        assert entry2.prev_hash == entry1.entry_hash
-
-    def test_verify_valid_chain(self, chain):
-        """Test verifying a valid chain."""
-        chain.initialize()
-        chain.append(ActionType.TRANSACTION, "Action 1", {})
-        chain.append(ActionType.TRANSACTION, "Action 2", {})
-
-        assert chain.verify()
-
-    def test_iterate_entries(self, chain):
-        """Test iterating over entries."""
-        chain.initialize()
-        chain.append(ActionType.TRANSACTION, "Action 1", {})
-        chain.append(ActionType.TRANSACTION, "Action 2", {})
-
-        entries = list(chain)
-        assert len(entries) == 3
-        assert entries[0].sequence == 0
-        assert entries[2].sequence == 2
-
-    def test_get_entry_by_index(self, chain):
-        """Test getting entry by index."""
-        chain.initialize()
-        entry = chain.append(ActionType.TRANSACTION, "Test", {})
-
-        assert chain[1] == entry
-
-    def test_get_entries_since(self, chain):
-        """Test getting entries since a sequence."""
-        chain.initialize()
-        chain.append(ActionType.TRANSACTION, "Action 1", {})
-        chain.append(ActionType.TRANSACTION, "Action 2", {})
-
-        entries = chain.get_entries_since(0)
-        assert len(entries) == 2
-        assert entries[0].sequence == 1
-
-    def test_get_entry_by_hash(self, chain):
-        """Test finding entry by hash."""
-        chain.initialize()
-        entry = chain.append(ActionType.TRANSACTION, "Test", {})
-
-        found = chain.get_entry_by_hash(entry.entry_hash)
-        assert found == entry
-
-        not_found = chain.get_entry_by_hash(b"x" * 32)
-        assert not_found is None
-
-    def test_persistence(self, keypair):
-        """Test chain persistence to file."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "state.json"
-
-            # Create and populate chain
-            chain1 = StateChain(
-                agent_id=str(keypair.to_agent_id()),
-                keypair=keypair,
-                persistence_path=path,
-            )
-            chain1.initialize()
-            chain1.append(ActionType.TRANSACTION, "Test", {"data": "value"})
-
-            assert path.exists()
-
-            # Load in new chain instance
-            chain2 = StateChain(
-                agent_id=str(keypair.to_agent_id()),
-                keypair=keypair,
-                persistence_path=path,
-            )
-            chain2._load_from_file()
-
-            assert len(chain2) == 2
-            assert chain2.head.entry_hash == chain1.head.entry_hash
-
-    def test_clear_chain(self, chain):
-        """Test clearing the chain."""
-        chain.initialize()
-        chain.append(ActionType.TRANSACTION, "Test", {})
-
-        chain.clear()
-
-        assert len(chain) == 0
+        """Create a fresh state chain."""
+        agent_id = str(keypair.to_agent_id())
+        return StateChain(agent_id, keypair)
+    
+    def test_new_chain_is_empty(self, chain):
+        """New chain should be empty."""
+        assert chain.is_empty
+        assert chain.length == 0
         assert chain.head is None
-
-    def test_action_type_as_string(self, chain):
-        """Test using action type as string."""
-        chain.initialize()
-        entry = chain.append("transaction", "Test", {})
-
+        assert chain.sequence == -1
+    
+    def test_append_creates_entry(self, chain):
+        """append() should create and return entry."""
+        entry = chain.append(
+            ActionType.TRANSACTION,
+            "Test transaction",
+            {"amount": 100},
+        )
+        
+        assert isinstance(entry, StateEntry)
         assert entry.action_type == ActionType.TRANSACTION
+        assert entry.action_summary == "Test transaction"
+        assert entry.sequence == 0
+        assert entry.prev_hash == ZERO_HASH  # First entry
+    
+    def test_append_increments_sequence(self, chain):
+        """Each append should increment sequence."""
+        chain.append(ActionType.TRANSACTION, "First")
+        chain.append(ActionType.TRANSACTION, "Second")
+        chain.append(ActionType.TRANSACTION, "Third")
+        
+        assert chain.sequence == 2
+        assert chain.length == 3
+    
+    def test_append_links_entries(self, chain):
+        """Entries should be linked via prev_hash."""
+        entry1 = chain.append(ActionType.TRANSACTION, "First")
+        entry2 = chain.append(ActionType.TRANSACTION, "Second")
+        
+        assert entry2.prev_hash == entry1.entry_hash
+    
+    def test_head_returns_latest(self, chain):
+        """head should return most recent entry."""
+        chain.append(ActionType.TRANSACTION, "First")
+        entry2 = chain.append(ActionType.TRANSACTION, "Second")
+        
+        assert chain.head == entry2
+    
+    def test_get_entry_by_sequence(self, chain):
+        """get_entry() should retrieve by sequence."""
+        entries = []
+        for i in range(5):
+            entries.append(chain.append(ActionType.TRANSACTION, f"Entry {i}"))
+        
+        for i, entry in enumerate(entries):
+            assert chain.get_entry(i) == entry
+        
+        assert chain.get_entry(10) is None
+        assert chain.get_entry(-1) is None
+    
+    def test_get_entries_range(self, chain):
+        """get_entries() should return range."""
+        for i in range(10):
+            chain.append(ActionType.TRANSACTION, f"Entry {i}")
+        
+        subset = chain.get_entries(2, 5)
+        
+        assert len(subset) == 3
+        assert subset[0].sequence == 2
+        assert subset[-1].sequence == 4
+    
+    def test_verify_valid_chain(self, chain):
+        """verify() should pass for valid chain."""
+        for i in range(5):
+            chain.append(ActionType.TRANSACTION, f"Entry {i}")
+        
+        assert chain.verify()
+    
+    def test_iteration(self, chain):
+        """Chain should support iteration."""
+        for i in range(5):
+            chain.append(ActionType.TRANSACTION, f"Entry {i}")
+        
+        entries = list(chain)
+        assert len(entries) == 5
+        
+        for i, entry in enumerate(entries):
+            assert entry.sequence == i
+    
+    def test_indexing(self, chain):
+        """Chain should support indexing."""
+        for i in range(5):
+            chain.append(ActionType.TRANSACTION, f"Entry {i}")
+        
+        assert chain[0].sequence == 0
+        assert chain[-1].sequence == 4
+    
+    def test_persistence(self, chain, keypair, temp_dir):
+        """Chain should persist and restore."""
+        path = temp_dir / "chain.json"
+        agent_id = str(keypair.to_agent_id())
+        
+        # Create chain with entries
+        chain_with_path = StateChain(agent_id, keypair, persistence_path=path)
+        chain_with_path.append(ActionType.TRANSACTION, "Entry 1")
+        chain_with_path.append(ActionType.TRANSACTION, "Entry 2")
+        
+        # Load in new instance
+        restored = StateChain(agent_id, keypair, persistence_path=path)
+        
+        assert restored.length == 2
+        assert restored.head.action_summary == "Entry 2"
+
+
+class TestStateEntrySignatures:
+    """Tests for state entry signature verification."""
+    
+    def test_entry_signature_valid(self, keypair):
+        """Entry signature should be valid."""
+        agent_id = str(keypair.to_agent_id())
+        chain = StateChain(agent_id, keypair)
+        
+        entry = chain.append(ActionType.TRANSACTION, "Test")
+        
+        assert entry.verify_signature(keypair.public_key_bytes())
+    
+    def test_entry_hash_valid(self, keypair):
+        """Entry hash should be valid."""
+        agent_id = str(keypair.to_agent_id())
+        chain = StateChain(agent_id, keypair)
+        
+        entry = chain.append(ActionType.TRANSACTION, "Test")
+        
+        assert entry.verify_hash()
+    
+    def test_wrong_key_fails_signature(self, keypair):
+        """Signature should fail with wrong key."""
+        agent_id = str(keypair.to_agent_id())
+        chain = StateChain(agent_id, keypair)
+        
+        entry = chain.append(ActionType.TRANSACTION, "Test")
+        wrong_keypair = KeyPair.generate()
+        
+        assert not entry.verify_signature(wrong_keypair.public_key_bytes())

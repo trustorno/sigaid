@@ -1,271 +1,168 @@
-# SigAid
+# SigAid - Secure Agent Identity Protocol
 
-**Cryptographic Identity Protocol for AI Agents**
+A cryptographically secure agent identity protocol with exclusive leasing, state continuity, and verification capabilities.
 
-One identity. One instance. Complete audit trail.
+## Features
 
-[![Tests](https://img.shields.io/badge/tests-160%20passing-success)](./tests)
-[![Python](https://img.shields.io/badge/python-3.11+-blue)](./pyproject.toml)
-[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+- **Cryptographic Identity**: Ed25519-based agent identities with checksums
+- **Exclusive Leasing**: Prevents "clone" attacks - only one instance per agent
+- **State Chain**: Hash-linked action log for verifiable history
+- **Proof Bundles**: Cryptographic proofs for service verification
+- **Framework Integrations**: One-line wrapping for LangChain, CrewAI, AutoGen
 
----
-
-## The Problem
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff', 'primaryBorderColor': '#666', 'lineColor': '#666', 'primaryTextColor': '#333'}}}%%
-graph LR
-    Q1[Who is this agent?] --> A1[Identity]
-    Q2[Is it the only instance?] --> A2[Exclusivity]
-    Q3[What has it done?] --> A3[Auditability]
-
-    A1 --> S1[Ed25519 Keys]
-    A2 --> S2[Lease System]
-    A3 --> S3[State Chain]
-```
-
----
-
-## Architecture
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff', 'primaryBorderColor': '#666', 'lineColor': '#666', 'primaryTextColor': '#333', 'clusterBkg': '#fff', 'clusterBorder': '#666'}}}%%
-graph TB
-    subgraph Agents
-        A1[Agent 1]
-        A2[Agent 2]
-        A3[Agent N]
-    end
-
-    subgraph SDK[SigAid SDK]
-        C[Crypto]
-        L[Lease]
-        S[State]
-        V[Verify]
-    end
-
-    subgraph Authority[Authority Service]
-        LM[Lease Manager]
-        SC[State Chains]
-        PV[Proof Verifier]
-    end
-
-    subgraph Storage
-        PG[(PostgreSQL)]
-        RD[(Redis)]
-    end
-
-    Agents --> SDK
-    SDK --> Authority
-    Authority --> Storage
-
-    Services[Third-Party Services] -.-> Authority
-```
-
----
-
-## Key Hierarchy
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff', 'primaryBorderColor': '#666', 'lineColor': '#666', 'primaryTextColor': '#333'}}}%%
-graph TB
-    Seed[Master Seed<br/>256 bits] --> HKDF[HKDF-SHA256]
-
-    HKDF --> IK[Identity Key<br/>Ed25519]
-    HKDF --> SK[State Key<br/>Ed25519]
-
-    IK --> PK[Public Key<br/>32 bytes]
-    PK --> AID[AgentID<br/>aid_7Xq9YkPz...]
-```
-
-```python
-from sigaid import AgentClient
-
-agent = AgentClient.create()
-print(agent.agent_id)  # aid_7Xq9YkPzN3mWvR5tH8jL2cBfA4dE6gS1
-```
-
----
-
-## Exclusive Leasing
-
-Only one instance can operate at a time. Clones are rejected.
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'actorBkg': '#fff', 'actorBorder': '#666', 'actorTextColor': '#333', 'signalColor': '#666', 'signalTextColor': '#333', 'noteBkgColor': '#fff', 'noteBorderColor': '#666'}}}%%
-sequenceDiagram
-    participant I1 as Instance 1
-    participant Auth as Authority
-    participant I2 as Instance 2
-
-    I1->>Auth: LeaseRequest(agent_id, sig)
-    Note over Auth: SETNX atomic check
-    Auth->>I1: LeaseGranted(token)
-
-    Note over I1,Auth: Lease Active
-
-    I2->>Auth: LeaseRequest(same agent_id)
-    Auth->>I2: Rejected - lease held
-```
-
-```python
-async with client1.lease():
-    async with client2.lease():  # Raises LeaseHeldByAnotherInstance
-        pass
-```
-
----
-
-## State Chain
-
-Every action is signed and hash-linked.
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff', 'primaryBorderColor': '#666', 'lineColor': '#666', 'primaryTextColor': '#333'}}}%%
-graph LR
-    G[Genesis<br/>seq: 0<br/>hash: 0xA1] --> E1[Entry 1<br/>seq: 1<br/>prev: 0xA1<br/>hash: 0xB2]
-    E1 --> E2[Entry 2<br/>seq: 2<br/>prev: 0xB2<br/>hash: 0xC3]
-    E2 --> E3[Entry 3<br/>seq: 3<br/>prev: 0xC3<br/>hash: 0xD4]
-```
-
-Tamper with any entry and the chain breaks. Fork detection catches inconsistencies.
-
-```python
-async with agent.lease():
-    entry = await agent.record_action("payment", {"amount": 100})
-```
-
----
-
-## Verification
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'actorBkg': '#fff', 'actorBorder': '#666', 'actorTextColor': '#333', 'signalColor': '#666', 'signalTextColor': '#333', 'noteBkgColor': '#fff', 'noteBorderColor': '#666'}}}%%
-sequenceDiagram
-    participant S as Service
-    participant A as Agent
-    participant Auth as Authority
-
-    S->>A: Challenge(nonce)
-    A->>S: ProofBundle
-    S->>Auth: Verify(proof)
-    Note over Auth: Check signatures<br/>Check lease<br/>Check chain
-    Auth->>S: Valid
-```
-
-```python
-result = await verifier.verify(proof_bundle)
-if result.valid:
-    print(f"Verified: {result.agent_id}")
-```
-
----
-
-## Cryptographic Stack
-
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#fff', 'primaryBorderColor': '#666', 'lineColor': '#666', 'primaryTextColor': '#333', 'clusterBkg': '#fff', 'clusterBorder': '#666'}}}%%
-graph TB
-    subgraph Signatures
-        ED[Ed25519]
-    end
-
-    subgraph Hashing
-        BL[BLAKE3]
-    end
-
-    subgraph Tokens
-        PA[PASETO v4]
-    end
-
-    subgraph Post-Quantum
-        DI[Dilithium-3]
-    end
-
-    ED & BL & PA & DI --> DS[Domain Separation]
-```
-
-| Component | Algorithm | Purpose |
-|-----------|-----------|---------|
-| Signatures | Ed25519 | Fast, 64-byte signatures |
-| Hashing | BLAKE3 | Faster than SHA-256 |
-| Tokens | PASETO v4 | No algorithm confusion |
-| Post-Quantum | Dilithium-3 | Future-proof hybrid |
-
----
-
-## Quick Start
+## Installation
 
 ```bash
 pip install sigaid
 ```
+
+For framework integrations:
+
+```bash
+pip install sigaid[langchain]   # LangChain support
+pip install sigaid[crewai]      # CrewAI support
+pip install sigaid[autogen]     # AutoGen support
+pip install sigaid[all-integrations]  # All frameworks
+```
+
+## Quick Start
+
+### One-Line Framework Integration
+
+```python
+import sigaid
+
+# Wrap your existing agent - that's it!
+agent = sigaid.wrap(my_langchain_agent)
+
+# Use exactly as before
+result = agent.invoke({"input": "Hello"})
+
+# Agent now has verifiable identity
+print(agent._sigaid.agent_id)
+```
+
+### Direct SDK Usage
 
 ```python
 import asyncio
 from sigaid import AgentClient
 
 async def main():
-    agent = AgentClient.create()
-
-    async with agent.lease():
-        await agent.record_action("booked_flight", {
-            "flight": "UA123",
-            "amount": 450.00
-        })
-        proof = agent.create_proof(challenge=b"nonce")
+    # Create new agent
+    client = AgentClient.create()
+    print(f"Agent ID: {client.agent_id}")
+    
+    # Acquire exclusive lease
+    async with client.lease() as lease:
+        # Record actions
+        await client.record_action(
+            "transaction",
+            {"amount": 100, "recipient": "merchant_123"},
+            summary="Processed payment"
+        )
+        
+        # Create proof for verification
+        proof = client.create_proof(challenge=b"verifier_nonce")
+    
+    await client.close()
 
 asyncio.run(main())
 ```
 
----
+### Service-Side Verification
 
-## Installation
+```python
+from sigaid import Verifier
+
+verifier = Verifier(api_key="...")
+
+result = await verifier.verify(
+    proof_bundle,
+    require_lease=True,
+    min_reputation_score=0.7,
+)
+
+if result.valid:
+    print(f"Agent {result.agent_id} verified!")
+```
+
+## Core Concepts
+
+### Agent Identity
+
+Each agent has a unique cryptographic identity:
+- **AgentID**: Derived from Ed25519 public key (`aid_7Xq9YkPz...`)
+- **KeyPair**: Used for signing actions and proofs
+- Stored in encrypted keyfiles for persistence
+
+### Exclusive Leasing
+
+Prevents "clone" attacks where multiple instances use the same identity:
+- Only one instance can hold a lease at a time
+- Atomic acquisition via Authority service
+- Automatic renewal while in use
+- Clone attempts are rejected
+
+### State Chain
+
+Tamper-evident log of agent actions:
+- Hash-linked entries (BLAKE3)
+- Signed with Ed25519
+- Fork detection for clone prevention
+- Verifiable by services
+
+### Proof Bundles
+
+Complete proof for verification:
+- Agent identity
+- Active lease
+- State chain head
+- Challenge-response signature
+
+## Security
+
+| Feature | Implementation |
+|---------|---------------|
+| Identity Keys | Ed25519 |
+| Hashing | BLAKE3 |
+| Lease Tokens | PASETO v4 |
+| Domain Separation | Prevents cross-protocol attacks |
+| Constant-time comparisons | Timing attack prevention |
+
+## Framework Support
+
+| Framework | Status | Installation |
+|-----------|--------|--------------|
+| LangChain | Supported | `pip install sigaid[langchain]` |
+| CrewAI | Supported | `pip install sigaid[crewai]` |
+| AutoGen | Supported | `pip install sigaid[autogen]` |
+| OpenAI Agents | Supported | Base package |
+
+## Environment Variables
 
 ```bash
-pip install sigaid           # Core SDK
-pip install sigaid[pq]       # Post-quantum signatures
-pip install sigaid[hsm]      # Hardware security modules
-pip install sigaid[server]   # Self-hosted Authority
-pip install sigaid[all]      # Everything
+SIGAID_API_KEY=sk_live_xxx     # API key for Authority
+SIGAID_AUTHORITY_URL=https://api.sigaid.com  # Authority URL
+SIGAID_LOG_LEVEL=INFO          # Logging verbosity
 ```
 
----
+## Development
 
-## Project Structure
+```bash
+# Install dev dependencies
+pip install -e ".[dev]"
 
+# Run tests
+pytest tests/ -v
+
+# Type checking
+mypy sigaid/
+
+# Linting
+ruff check sigaid/
 ```
-sigaid/
-├── crypto/          # Ed25519, BLAKE3, PASETO, Dilithium
-├── identity/        # AgentID generation & storage
-├── lease/           # Exclusive lease management
-├── state/           # Hash-linked state chain
-├── verification/    # Proof creation & verification
-└── client/          # AgentClient interface
 
-authority/           # FastAPI service
-website/             # Next.js docs
-```
-
----
-
-## API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /v1/agents | Register agent |
-| POST | /v1/leases | Acquire lease |
-| PUT | /v1/leases/{id} | Renew lease |
-| DELETE | /v1/leases/{id} | Release lease |
-| POST | /v1/state/{id} | Append state |
-| GET | /v1/state/{id} | Get state head |
-| POST | /v1/verify | Verify proof |
-
----
-
-## Links
-
-- Website: https://sigaid.com
-- Documentation: https://sigaid.com/docs
-- GitHub: https://github.com/trustorno/sigaid
+## License
 
 MIT License

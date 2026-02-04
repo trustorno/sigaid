@@ -1,292 +1,198 @@
-"""Tests for key generation and management."""
-
-import tempfile
-from pathlib import Path
+"""Tests for crypto/keys.py - Key generation and management."""
 
 import pytest
+from pathlib import Path
 
-from sigaid.crypto.keys import KeyPair, public_key_from_bytes
+from sigaid.crypto.keys import KeyPair, verify_signature_with_public_key
+from sigaid.constants import ED25519_PRIVATE_KEY_SIZE, ED25519_PUBLIC_KEY_SIZE, ED25519_SIGNATURE_SIZE
 from sigaid.exceptions import InvalidKey, CryptoError
 
 
 class TestKeyPair:
     """Tests for KeyPair class."""
-
+    
     def test_generate_creates_valid_keypair(self):
-        """Test that generate() creates a valid keypair."""
+        """generate() should create a valid keypair."""
         keypair = KeyPair.generate()
-        assert keypair.public_key_bytes() is not None
-        assert len(keypair.public_key_bytes()) == 32
-        assert len(keypair.private_key_bytes()) == 32
-
+        
+        assert len(keypair.public_key_bytes()) == ED25519_PUBLIC_KEY_SIZE
+        assert len(keypair.private_key_bytes()) == ED25519_PRIVATE_KEY_SIZE
+    
     def test_generate_creates_unique_keypairs(self):
-        """Test that each generate() call creates unique keypair."""
-        keypair1 = KeyPair.generate()
-        keypair2 = KeyPair.generate()
-        assert keypair1.public_key_bytes() != keypair2.public_key_bytes()
-
+        """Each generate() call should produce unique keys."""
+        kp1 = KeyPair.generate()
+        kp2 = KeyPair.generate()
+        
+        assert kp1.public_key_bytes() != kp2.public_key_bytes()
+        assert kp1.private_key_bytes() != kp2.private_key_bytes()
+    
     def test_from_seed_is_deterministic(self):
-        """Test that from_seed() is deterministic."""
-        seed = b"a" * 32
-        keypair1 = KeyPair.from_seed(seed)
-        keypair2 = KeyPair.from_seed(seed)
-        assert keypair1.public_key_bytes() == keypair2.public_key_bytes()
-
-    def test_from_seed_invalid_length(self):
-        """Test that from_seed() rejects invalid seed length."""
+        """from_seed() should produce same keypair from same seed."""
+        seed = b"x" * 32
+        
+        kp1 = KeyPair.from_seed(seed)
+        kp2 = KeyPair.from_seed(seed)
+        
+        assert kp1.public_key_bytes() == kp2.public_key_bytes()
+        assert kp1.private_key_bytes() == kp2.private_key_bytes()
+    
+    def test_from_seed_rejects_wrong_size(self):
+        """from_seed() should reject seeds that aren't 32 bytes."""
         with pytest.raises(InvalidKey):
-            KeyPair.from_seed(b"too_short")
-
-    def test_sign_and_verify(self):
-        """Test signing and verification."""
-        keypair = KeyPair.generate()
-        message = b"hello world"
-
-        signature = keypair.sign(message)
-        assert len(signature) == 64
-        assert keypair.verify(signature, message)
-
-    def test_sign_with_domain_separation(self):
-        """Test signing with domain separation."""
-        keypair = KeyPair.generate()
-        message = b"hello world"
-        domain = "test.domain.v1"
-
-        signature = keypair.sign(message, domain=domain)
-
-        # Verify with same domain succeeds
-        assert keypair.verify(signature, message, domain=domain)
-
-        # Verify with different domain fails
-        assert not keypair.verify(signature, message, domain="other.domain")
-
-        # Verify without domain fails
-        assert not keypair.verify(signature, message)
-
-    def test_from_private_bytes(self):
-        """Test loading from private key bytes."""
-        keypair1 = KeyPair.generate()
-        private_bytes = keypair1.private_key_bytes()
-
-        keypair2 = KeyPair.from_private_bytes(private_bytes)
-        assert keypair1.public_key_bytes() == keypair2.public_key_bytes()
-
-    def test_to_agent_id(self):
-        """Test deriving agent ID from keypair."""
-        keypair = KeyPair.generate()
-        agent_id = keypair.to_agent_id()
-
-        assert str(agent_id).startswith("aid_")
-        # Verify we can recover public key from agent ID
-        recovered_pk = agent_id.to_public_key_bytes()
-        assert recovered_pk == keypair.public_key_bytes()
-
-    def test_encrypted_file_roundtrip(self):
-        """Test saving and loading encrypted keyfile."""
-        keypair = KeyPair.generate()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "test.key"
-            password = "test_password_123"
-
-            # Save
-            keypair.to_encrypted_file(path, password)
-            assert path.exists()
-
-            # Load
-            loaded = KeyPair.from_encrypted_file(path, password)
-            assert loaded.public_key_bytes() == keypair.public_key_bytes()
-
-    def test_encrypted_file_wrong_password(self):
-        """Test that wrong password fails."""
-        keypair = KeyPair.generate()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "test.key"
-
-            keypair.to_encrypted_file(path, "correct_password")
-
-            with pytest.raises(CryptoError):
-                KeyPair.from_encrypted_file(path, "wrong_password")
-
-    def test_repr_is_safe(self):
-        """Test that repr doesn't leak private key."""
-        keypair = KeyPair.generate()
-        repr_str = repr(keypair)
-
-        assert "KeyPair" in repr_str
-        assert "aid_" in repr_str
-        # Private key should not be in repr
-        private_hex = keypair.private_key_bytes().hex()
-        assert private_hex not in repr_str
-
-
-class TestPublicKeyFromBytes:
-    """Tests for public_key_from_bytes function."""
-
-    def test_valid_public_key(self):
-        """Test loading valid public key."""
-        keypair = KeyPair.generate()
-        pk_bytes = keypair.public_key_bytes()
-
-        pk = public_key_from_bytes(pk_bytes)
-        assert pk is not None
-
-    def test_invalid_length(self):
-        """Test that invalid length is rejected."""
+            KeyPair.from_seed(b"too short")
+        
         with pytest.raises(InvalidKey):
-            public_key_from_bytes(b"too_short")
-
-
-class TestKeyPairSecureMemory:
-    """Tests for KeyPair secure memory handling."""
-
-    def test_clear_method(self):
-        """Test clear() method zeros key material."""
+            KeyPair.from_seed(b"x" * 64)
+    
+    def test_from_private_bytes_roundtrip(self):
+        """from_private_bytes() should restore keypair."""
+        original = KeyPair.generate()
+        private_bytes = original.private_key_bytes()
+        
+        restored = KeyPair.from_private_bytes(private_bytes)
+        
+        assert restored.public_key_bytes() == original.public_key_bytes()
+        assert restored.private_key_bytes() == original.private_key_bytes()
+    
+    def test_sign_produces_valid_signature(self):
+        """sign() should produce a verifiable signature."""
         keypair = KeyPair.generate()
-        assert not keypair._cleared
-
-        keypair.clear()
-
-        assert keypair._cleared
-        assert keypair._secure_seed is None
-
-    def test_clear_multiple_times_safe(self):
-        """Test clear() can be called multiple times safely."""
-        keypair = KeyPair.generate()
-        keypair.clear()
-        keypair.clear()  # Should not raise
-        assert keypair._cleared
-
-    def test_sign_after_clear_raises(self):
-        """Test signing after clear raises CryptoError."""
-        keypair = KeyPair.generate()
-        keypair.clear()
-
-        with pytest.raises(CryptoError, match="cleared"):
-            keypair.sign(b"message")
-
-    def test_private_key_bytes_after_clear_raises(self):
-        """Test getting private key bytes after clear raises."""
-        keypair = KeyPair.generate()
-        keypair.clear()
-
-        with pytest.raises(CryptoError, match="cleared"):
-            keypair.private_key_bytes()
-
-    def test_to_encrypted_file_after_clear_raises(self):
-        """Test encrypting to file after clear raises."""
-        keypair = KeyPair.generate()
-        keypair.clear()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "test.key"
-            with pytest.raises(CryptoError, match="cleared"):
-                keypair.to_encrypted_file(path, "password")
-
-    def test_context_manager(self):
-        """Test KeyPair as context manager."""
-        with KeyPair.generate() as keypair:
-            # Can use keypair inside context
-            assert len(keypair.public_key_bytes()) == 32
-            assert not keypair._cleared
-
-        # Automatically cleared after exiting
-        assert keypair._cleared
-
-    def test_context_manager_clears_on_exception(self):
-        """Test context manager clears even on exception."""
-        keypair = None
-        try:
-            with KeyPair.generate() as kp:
-                keypair = kp
-                raise ValueError("test error")
-        except ValueError:
-            pass
-
-        assert keypair._cleared
-
-    def test_destructor_clears(self):
-        """Test __del__ clears key material."""
-        keypair = KeyPair.generate()
-        assert not keypair._cleared
-
-        keypair.__del__()
-
-        assert keypair._cleared
-
-    def test_repr_shows_cleared_status(self):
-        """Test repr shows cleared status."""
-        keypair = KeyPair.generate()
-        keypair.clear()
-
-        repr_str = repr(keypair)
-        assert "cleared" in repr_str
-
-    def test_from_seed_uses_secure_memory(self):
-        """Test from_seed uses secure memory."""
-        seed = b"a" * 32
-        keypair = KeyPair.from_seed(seed)
-
-        # Should have secure seed storage
-        assert keypair._secure_seed is not None
-        assert not keypair._secure_seed.is_cleared
-
-        keypair.clear()
-        assert keypair._secure_seed is None
-
-    def test_from_private_bytes_uses_secure_memory(self):
-        """Test from_private_bytes uses secure memory."""
-        seed = b"b" * 32
-        keypair = KeyPair.from_private_bytes(seed)
-
-        assert keypair._secure_seed is not None
-        assert not keypair._secure_seed.is_cleared
-
-        keypair.clear()
-
-    def test_from_encrypted_file_uses_secure_memory(self):
-        """Test loaded keypair uses secure memory."""
-        with KeyPair.generate() as original:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / "test.key"
-                original.to_encrypted_file(path, "password")
-
-                loaded = KeyPair.from_encrypted_file(path, password="password")
-
-                # Loaded keypair should have secure storage
-                assert loaded._secure_seed is not None
-                assert not loaded._secure_seed.is_cleared
-
-                loaded.clear()
-
-    def test_verify_still_works_after_clear(self):
-        """Test verify works after clear (uses public key only)."""
-        keypair = KeyPair.generate()
-        message = b"hello"
+        message = b"Hello, World!"
+        
         signature = keypair.sign(message)
-
-        keypair.clear()
-
-        # Verify should still work - only needs public key
+        
+        assert len(signature) == ED25519_SIGNATURE_SIZE
         assert keypair.verify(signature, message)
-
-    def test_public_key_bytes_works_after_clear(self):
-        """Test getting public key bytes works after clear."""
+    
+    def test_sign_with_domain_produces_unique_signature(self):
+        """sign_with_domain() should produce different signature than sign()."""
         keypair = KeyPair.generate()
-        pk_before = keypair.public_key_bytes()
-
-        keypair.clear()
-
-        pk_after = keypair.public_key_bytes()
-        assert pk_before == pk_after
-
-    def test_to_agent_id_works_after_clear(self):
-        """Test to_agent_id works after clear."""
+        message = b"Hello, World!"
+        
+        sig_plain = keypair.sign(message)
+        sig_domain = keypair.sign_with_domain(message, "test.domain.v1")
+        
+        assert sig_plain != sig_domain
+    
+    def test_verify_with_domain_requires_same_domain(self):
+        """verify_with_domain() should fail with wrong domain."""
         keypair = KeyPair.generate()
-        agent_id_before = keypair.to_agent_id()
+        message = b"Hello, World!"
+        
+        signature = keypair.sign_with_domain(message, "correct.domain")
+        
+        assert keypair.verify_with_domain(signature, message, "correct.domain")
+        assert not keypair.verify_with_domain(signature, message, "wrong.domain")
+    
+    def test_verify_rejects_tampered_message(self):
+        """verify() should reject signatures for tampered messages."""
+        keypair = KeyPair.generate()
+        message = b"Original message"
+        
+        signature = keypair.sign(message)
+        
+        assert keypair.verify(signature, message)
+        assert not keypair.verify(signature, b"Tampered message")
+    
+    def test_verify_rejects_wrong_keypair(self):
+        """verify() should reject signatures from different keypair."""
+        kp1 = KeyPair.generate()
+        kp2 = KeyPair.generate()
+        message = b"Hello, World!"
+        
+        signature = kp1.sign(message)
+        
+        assert kp1.verify(signature, message)
+        assert not kp2.verify(signature, message)
+    
+    def test_to_agent_id_is_deterministic(self):
+        """to_agent_id() should always return same ID."""
+        keypair = KeyPair.generate()
+        
+        id1 = keypair.to_agent_id()
+        id2 = keypair.to_agent_id()
+        
+        assert str(id1) == str(id2)
+    
+    def test_encrypted_file_roundtrip(self, temp_dir):
+        """Keypair should survive encryption/decryption cycle."""
+        original = KeyPair.generate()
+        path = temp_dir / "test.key"
+        password = "test_password_123"
+        
+        original.to_encrypted_file(path, password)
+        restored = KeyPair.from_encrypted_file(path, password)
+        
+        assert restored.public_key_bytes() == original.public_key_bytes()
+        assert restored.private_key_bytes() == original.private_key_bytes()
+    
+    def test_encrypted_file_wrong_password_fails(self, temp_dir):
+        """Decryption with wrong password should fail."""
+        keypair = KeyPair.generate()
+        path = temp_dir / "test.key"
+        
+        keypair.to_encrypted_file(path, "correct_password")
+        
+        with pytest.raises(CryptoError):
+            KeyPair.from_encrypted_file(path, "wrong_password")
+    
+    def test_derive_session_key_is_deterministic(self):
+        """derive_session_key() should be deterministic."""
+        keypair = KeyPair.generate()
+        session_id = b"session_12345"
+        
+        key1 = keypair.derive_session_key(session_id)
+        key2 = keypair.derive_session_key(session_id)
+        
+        assert key1 == key2
+        assert len(key1) == 32
+    
+    def test_derive_session_key_varies_with_session(self):
+        """derive_session_key() should vary with session ID."""
+        keypair = KeyPair.generate()
+        
+        key1 = keypair.derive_session_key(b"session_1")
+        key2 = keypair.derive_session_key(b"session_2")
+        
+        assert key1 != key2
 
-        keypair.clear()
 
-        agent_id_after = keypair.to_agent_id()
-        assert str(agent_id_before) == str(agent_id_after)
+class TestVerifySignatureWithPublicKey:
+    """Tests for standalone signature verification."""
+    
+    def test_verifies_valid_signature(self):
+        """Should verify valid signature."""
+        keypair = KeyPair.generate()
+        message = b"Test message"
+        signature = keypair.sign(message)
+        
+        assert verify_signature_with_public_key(
+            keypair.public_key_bytes(),
+            signature,
+            message,
+        )
+    
+    def test_rejects_wrong_public_key(self):
+        """Should reject signature with wrong public key."""
+        kp1 = KeyPair.generate()
+        kp2 = KeyPair.generate()
+        message = b"Test message"
+        signature = kp1.sign(message)
+        
+        assert not verify_signature_with_public_key(
+            kp2.public_key_bytes(),
+            signature,
+            message,
+        )
+    
+    def test_rejects_invalid_public_key(self):
+        """Should reject invalid public key bytes."""
+        keypair = KeyPair.generate()
+        message = b"Test message"
+        signature = keypair.sign(message)
+        
+        assert not verify_signature_with_public_key(
+            b"invalid_key",
+            signature,
+            message,
+        )
